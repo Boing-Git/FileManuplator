@@ -60,7 +60,7 @@ PANDOC_WRITERS: dict[str, str] = {
 
 # MIME type -> ConversionRoute
 ROUTES: dict[str, ConversionRoute] = {
-    # --- Images (ImageMagick) ---
+    # --- Images (ImageMagick & FFmpeg) ---
     "image/png": ConversionRoute(
         tool=Tool.IMAGEMAGICK,
         binary_candidates=("magick", "convert"),
@@ -77,9 +77,9 @@ ROUTES: dict[str, ConversionRoute] = {
         targets=("png", "jpg", "gif", "bmp", "tiff"),
     ),
     "image/gif": ConversionRoute(
-        tool=Tool.IMAGEMAGICK,
-        binary_candidates=("magick", "convert"),
-        targets=("png", "jpg", "webp"),
+        tool=Tool.FFMPEG,
+        binary_candidates=("ffmpeg",),
+        targets=("png", "jpg", "webp", "mp4"),
     ),
     "image/bmp": ConversionRoute(
         tool=Tool.IMAGEMAGICK,

@@ -14,6 +14,7 @@ text, so indentation, brackets, and symbols survive untouched.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -102,9 +103,15 @@ def build_command(
     or shell metacharacters are passed safely to subprocess.run().
     """
     if tool is Tool.IMAGEMAGICK:
-        # `magick input output` (IM7) and `convert input output` (IM6) share
-        # this exact argument order.
-        return [binary, str(input_path), str(output_path)]
+        # Prevent OOM (Out Of Memory) system kills on massive animated GIFs
+        # by forcing ImageMagick to cache to disk if it exceeds 1GiB of RAM.
+        return [
+            binary, 
+            "-limit", "memory", "1GiB", 
+            "-limit", "map", "2GiB", 
+            str(input_path), 
+            str(output_path)
+        ]
 
     if tool is Tool.FFMPEG:
         # -y: overwrite output without an interactive prompt (we own the
@@ -114,8 +121,18 @@ def build_command(
     raise ValueError(f"build_command doesn't handle {tool!r} directly; see run_conversion")
 
 
-def _run_subprocess(command: list[str], output_path: Path) -> ConversionResult:
-    proc = subprocess.run(command, capture_output=True, text=True, check=False)
+def _run_subprocess(
+    command: list[str], 
+    output_path: Path, 
+    env_updates: dict[str, str] | None = None
+) -> ConversionResult:
+    # Inject custom environment variables if provided (e.g. to bypass Nix TMPDIRs)
+    run_env = None
+    if env_updates:
+        run_env = os.environ.copy()
+        run_env.update(env_updates)
+
+    proc = subprocess.run(command, capture_output=True, text=True, check=False, env=run_env)
     return ConversionResult(
         success=proc.returncode == 0,
         output_path=output_path,
@@ -214,7 +231,19 @@ def run_conversion(
 
     if route.tool in (Tool.IMAGEMAGICK, Tool.FFMPEG):
         command = build_command(route.tool, binary, input_path, output_path)
-        return _run_subprocess(command, output_path)
+        
+        env_updates = None
+        if route.tool is Tool.IMAGEMAGICK:
+            # Force the cache directory to the target output folder, absolutely 
+            # bypassing any TMPDIR limits imposed by Nix or the system.
+            cache_dir = str(output_path.parent.absolute())
+            env_updates = {
+                "MAGICK_TEMPORARY_PATH": cache_dir,
+                "MAGICK_TMPDIR": cache_dir,
+                "TMPDIR": cache_dir,
+            }
+            
+        return _run_subprocess(command, output_path, env_updates)
 
     # route.tool is Tool.PANDOC from here on.
     target = _target_ext(output_path)
