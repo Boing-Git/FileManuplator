@@ -1,0 +1,4 @@
+# Ignore build folders and heavy binaries
+any2any-linux-x86_64/
+bin/
+*.tar.gz

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Find the exact directory this script is living in
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Prepend our bundled 'bin' folder to the system PATH
+# This forces engine.py to find our bundled ffmpeg/magick/pandoc FIRST
+export PATH="$APP_DIR/bin:$PATH"
+
+# Check if the user has PyGObject installed before launching
+if ! python3 -c "import gi" &> /dev/null; then
+    echo "Error: Python PyGObject is not installed."
+    echo "Please install it via your package manager (e.g., 'sudo pacman -S python-gobject' or 'sudo apt install python3-gi')."
+    exit 1
+fi
+
+# Launch the GTK app
+exec python3 "$APP_DIR/src/gui.py" "$@"
