@@ -103,4 +103,5 @@ actions:
   - type: copy
     condition: "{file.size} <= 3900000000"
     destination: "{output.path}"
+
 ```

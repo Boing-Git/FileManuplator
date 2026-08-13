@@ -44,7 +44,7 @@ Copies the input file to a destination.
 ```
 
 ### 2. `split_bytes`
-Splits a massive file into smaller byte chunks. The `chunk_size` can fibe specied in bytes, or with suffixes (e.g. `4G`, `3900M`, `2K`).
+Splits a massive file into smaller byte chunks. The `chunk_size` can be specified in bytes, or with suffixes (e.g. `4G`, `3900M`, `2K`).
 ```yaml
 - type: split_bytes
   chunk_size: "3900M"
