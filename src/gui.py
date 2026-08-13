@@ -165,6 +165,90 @@ class FormatsPage(Adw.NavigationPage):
         for row, mime_lower, tool_lower in self._rows:
             row.set_visible(query in mime_lower or query in tool_lower)
 
+class PluginsPage(Adw.NavigationPage):
+    """Browsable list of loaded YAML plugins."""
+
+    def __init__(self) -> None:
+        super().__init__(title="Installed Plugins")
+
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar.add_top_bar(header)
+
+        scroller = Gtk.ScrolledWindow(vexpand=True)
+        clamp = Adw.Clamp(maximum_size=800)
+        outer = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=18,
+            margin_top=18,
+            margin_bottom=24,
+            margin_start=18,
+            margin_end=18,
+        )
+
+        from plugin_loader import load_plugins, PLUGIN_ROUTES
+        import yaml
+        
+        load_plugins()
+        
+        # We need to find the unique plugins (targets) since PLUGIN_ROUTES is keyed by mime
+        plugins_seen = set()
+        
+        for mime_type, targets in PLUGIN_ROUTES.items():
+            for target, convert_fn in targets.items():
+                if target in plugins_seen:
+                    continue
+                plugins_seen.add(target)
+                
+                # To get descriptions, we could parse the yaml again, but we just want to list them
+                # For simplicity, we just show the name and mime types
+                # Actually, the user wanted Name, Mime Types, Description.
+                # Let's re-scan the plugins folder to show them natively.
+                
+        # Better: just scan plugins folder and read YAMLs directly for the UI
+        from pathlib import Path
+        bundled_dir = Path(__file__).parent / "plugins"
+        user_dir = Path.home() / ".local" / "share" / "any2any" / "plugins"
+        dirs = [bundled_dir, user_dir]
+        
+        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=1)
+        
+        count = 0
+        for pdir in dirs:
+            if not pdir.exists(): continue
+            for yml_file in list(pdir.glob("*.yaml")) + list(pdir.glob("*.yml")):
+                try:
+                    with open(yml_file, 'r') as f:
+                        data = yaml.safe_load(f)
+                    
+                    target = data.get("target", yml_file.stem)
+                    desc = data.get("description", "No description provided.")
+                    mimes = data.get("mime_types", ["*/*"])
+                    
+                    card = Adw.ActionRow(title=f"Target: {target}", subtitle=desc)
+                    badge = Gtk.Label(label=", ".join(mimes), css_classes=["pill", "tool-badge"])
+                    badge.set_valign(Gtk.Align.CENTER)
+                    card.add_suffix(badge)
+                    card.add_prefix(Gtk.Image.new_from_icon_name("application-x-addon"))
+                    
+                    group = Adw.PreferencesGroup()
+                    group.add(card)
+                    flow.append(group)
+                    count += 1
+                except Exception:
+                    pass
+
+        if count == 0:
+            empty = Adw.StatusPage(title="No Plugins Found", description="Drop .yaml files in ~/.local/share/any2any/plugins/", icon_name="edit-clear-symbolic")
+            outer.append(empty)
+        else:
+            outer.append(flow)
+
+        clamp.set_child(outer)
+        scroller.set_child(clamp)
+        toolbar.set_content(scroller)
+        self.set_child(toolbar)
+
 
 class MainWindow(Adw.ApplicationWindow):
     """The primary convert view: pick a file, pick a format, convert."""
@@ -204,6 +288,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         menu = Gio.Menu()
         menu.append("Supported formats", "win.show-formats")
+        menu.append("Installed plugins", "win.show-plugins")
         menu.append("About any2any", "win.show-about")
         menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu)
         header.pack_end(menu_button)
@@ -211,9 +296,14 @@ class MainWindow(Adw.ApplicationWindow):
         open_action = Gio.SimpleAction.new("open-file", None)
         open_action.connect("activate", lambda *_: self._pick_file())
         self.add_action(open_action)
+        
         formats_action = Gio.SimpleAction.new("show-formats", None)
         formats_action.connect("activate", lambda *_: self.nav_view.push(FormatsPage()))
         self.add_action(formats_action)
+        
+        plugins_action = Gio.SimpleAction.new("show-plugins", None)
+        plugins_action.connect("activate", lambda *_: self.nav_view.push(PluginsPage()))
+        self.add_action(plugins_action)
         about_action = Gio.SimpleAction.new("show-about", None)
         about_action.connect("activate", lambda *_: self._show_about())
         self.add_action(about_action)

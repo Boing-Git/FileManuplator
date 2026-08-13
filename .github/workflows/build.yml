@@ -1,0 +1,144 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip flatpak-builder linuxdeploy curl wget
+          pip3 install typer rich pyyaml
+
+      - name: Download Static Binaries
+        run: |
+          mkdir -p bin
+          # Download portable ffmpeg
+          wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+          tar -xJf ffmpeg-release-amd64-static.tar.xz
+          cp ffmpeg-*-amd64-static/ffmpeg bin/
+          
+          # Download portable pandoc
+          wget https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-linux-amd64.tar.gz
+          tar -xzf pandoc-3.1.9-linux-amd64.tar.gz
+          cp pandoc-3.1.9/bin/pandoc bin/
+          
+          # Download portable ImageMagick (AppImage)
+          wget https://github.com/ImageMagick/ImageMagick/releases/download/7.1.1-21/ImageMagick--gcc-x86_64.AppImage -O bin/magick
+          chmod +x bin/magick bin/ffmpeg bin/pandoc
+
+      - name: Create Tarball
+        run: |
+          mkdir -p any2any-linux
+          cp -r src bin packaging plugins any2any-linux/
+          tar -czf any2any-linux-x86_64.tar.gz any2any-linux/
+
+      - name: Build AppImage
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp -r src/* AppDir/usr/bin/
+          cp -r bin/* AppDir/usr/bin/
+          # Basic AppRun
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          exec python3 "${HERE}/usr/bin/main.py" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Basic Desktop File
+          cat << 'EOF' > AppDir/any2any.desktop
+          [Desktop Entry]
+          Name=any2any
+          Exec=any2any
+          Icon=any2any
+          Type=Application
+          Categories=Utility;
+          EOF
+          
+          # Dummy icon
+          touch AppDir/any2any.png
+          
+          wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          chmod +x linuxdeploy-x86_64.AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --repo=repo build-dir packaging/linux/org.any2any.Converter.yml --force-clean
+          flatpak build-bundle repo any2any.flatpak org.any2any.Converter
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            any2any-linux-x86_64.tar.gz
+            Any2Any-x86_64.AppImage
+            any2any.flatpak
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-libadwaita
+            mingw-w64-ucrt-x86_64-python-gobject
+            mingw-w64-ucrt-x86_64-pyinstaller
+            mingw-w64-ucrt-x86_64-imagemagick
+            mingw-w64-ucrt-x86_64-ffmpeg
+            mingw-w64-ucrt-x86_64-pandoc
+
+      - name: Build Exe
+        run: |
+          pip install typer rich pyyaml
+          bash packaging/windows/build_windows.sh
+
+      - name: Zip Artifact
+        run: |
+          Compress-Archive -Path dist/Any2Any -DestinationPath Any2Any-Windows.zip
+        shell: powershell
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: Any2Any-Windows.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          brew install python gtk4 libadwaita pygobject3 ffmpeg imagemagick pandoc
+          pip3 install typer rich pyyaml
+
+      - name: Build macOS App
+        run: |
+          bash packaging/macos/build_macos.sh
+          # Assume it creates Any2Any.dmg
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: Any2Any.dmg

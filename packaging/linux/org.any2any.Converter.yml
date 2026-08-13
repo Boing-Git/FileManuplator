@@ -1,0 +1,22 @@
+app-id: org.any2any.Converter
+runtime: org.gnome.Platform
+runtime-version: '45'
+sdk: org.gnome.Sdk
+command: any2any
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=host
+modules:
+  - name: any2any
+    buildsystem: simple
+    build-commands:
+      - install -D src/main.py /app/bin/any2any
+      - cp -r src /app/src
+      - cp -r bin/* /app/bin/
+    sources:
+      - type: dir
+        path: ../../

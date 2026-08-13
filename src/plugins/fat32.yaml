@@ -1,0 +1,13 @@
+target: fat32
+mime_types: ["*/*"]
+description: "Splits files over 3.9GB for FAT32 USB compatibility"
+
+actions:
+  - type: split_bytes
+    condition: "{file.size} > 3900000000"
+    chunk_size: "3900M"
+    output_pattern: "{output.dir}/{file.name}.part"
+    
+  - type: copy
+    condition: "{file.size} <= 3900000000"
+    destination: "{output.path}"
