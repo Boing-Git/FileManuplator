@@ -10,13 +10,13 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip flatpak-builder linuxdeploy curl wget
-          pip3 install typer rich pyyaml
+          sudo apt-get install -y python3 python3-pip flatpak-builder curl wget
+          pip3 install --break-system-packages typer rich pyyaml
 
       - name: Download Static Binaries
         run: |
@@ -91,7 +91,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: msys2/setup-msys2@v2
         with:
@@ -107,10 +107,11 @@ jobs:
             mingw-w64-ucrt-x86_64-imagemagick
             mingw-w64-ucrt-x86_64-ffmpeg
             mingw-w64-ucrt-x86_64-pandoc
+            mingw-w64-ucrt-x86_64-file
 
       - name: Build Exe
         run: |
-          pip install typer rich pyyaml
+          pip install --break-system-packages typer rich pyyaml
           bash packaging/windows/build_windows.sh
 
       - name: Zip Artifact
@@ -126,12 +127,12 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           brew install python gtk4 libadwaita pygobject3 ffmpeg imagemagick pandoc
-          pip3 install typer rich pyyaml
+          pip3 install --break-system-packages typer rich pyyaml
 
       - name: Build macOS App
         run: |
