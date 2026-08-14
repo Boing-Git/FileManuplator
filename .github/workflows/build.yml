@@ -32,24 +32,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            python3 python3-pip \
-            python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
-            libgtk-4-dev libadwaita-1-dev pkg-config \
-            flatpak flatpak-builder \
-            curl wget
-          # Fix (round 1): previously nothing installed GTK4/libadwaita
-          # bindings at all — python3-gi + the gir1.2-* typelibs are what
-          # let `import gi` / Gtk.Window actually work in this job.
-          #
-          # Fix (round 2): that alone wasn't enough for linuxdeploy-plugin-gtk
-          # specifically — it locates GTK4's install dir by running
-          # `pkg-config --variable=libdir gtk4`, which needs gtk4.pc. The
-          # gir1.2-* runtime packages don't ship .pc files; only the
-          # -dev packages do (libgtk-4-dev, libadwaita-1-dev), hence
-          # "there is no 'libdir' variable for 'gtk4' library."
-          pip3 install --break-system-packages typer rich pyyaml
+          bash scripts/install_dependencies.sh
 
       - name: Download Static Binaries
         run: |
@@ -77,7 +60,7 @@ jobs:
           # the whole step down with exit code 1. Copy what's actually
           # there and warn (not fail) on anything missing, so a genuinely
           # absent directory doesn't block every downstream packaging step.
-          for d in src bin packaging plugins; do
+          for d in src bin packaging plugins scripts; do
             if [ -d "$d" ]; then
               cp -r "$d" filemanuplator-linux/
             else
@@ -206,41 +189,12 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-python
-            mingw-w64-ucrt-x86_64-python-pip
-            mingw-w64-ucrt-x86_64-python-yaml
-            mingw-w64-ucrt-x86_64-gtk4
-            mingw-w64-ucrt-x86_64-libadwaita
-            mingw-w64-ucrt-x86_64-python-gobject
-            mingw-w64-ucrt-x86_64-pyinstaller
-            mingw-w64-ucrt-x86_64-imagemagick
-            mingw-w64-ucrt-x86_64-ffmpeg
-            mingw-w64-ucrt-x86_64-file
-            unzip
 
-      # Fix: mingw-w64-ucrt-x86_64-pandoc does not appear to exist in the
-      # MSYS2 UCRT64 repo (only a `python-pandocfilters` helper package
-      # does) — the install step above would fail outright with an
-      # unresolvable-package error before ever reaching the build. Pandoc
-      # ships its own portable Windows zip upstream, same as the Linux job
-      # already does, so just fetch that instead of relying on MSYS2 to
-      # package it.
-      - name: Download Portable Pandoc
-        run: |
-          curl -L -o pandoc.zip "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-windows-x86_64.zip"
-          unzip -o pandoc.zip
-          cp "pandoc-${PANDOC_VERSION}/pandoc.exe" /ucrt64/bin/
+      - name: Install Dependencies
+        run: bash scripts/install_dependencies.sh
 
       - name: Build Exe
         run: |
-          # Fix: pyyaml ships a C extension, and PyPI has no prebuilt wheel
-          # for MSYS2's mingw_x86_64_ucrt_gnu Python ABI — pip fell back to
-          # building it from source, which then failed for lack of a C
-          # toolchain (none is installed in this job). typer/rich are pure
-          # Python (universal wheels), so pip still handles those fine;
-          # pyyaml now comes from the native msys2 package installed above.
-          pip install --break-system-packages typer rich
           bash packaging/windows/build_windows.sh
 
       - name: Zip Artifact
@@ -261,8 +215,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install python gtk4 libadwaita pygobject3 ffmpeg imagemagick pandoc
-          pip3 install --break-system-packages typer rich pyyaml
+          bash scripts/install_dependencies.sh
 
       - name: Build macOS App
         run: |

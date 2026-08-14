@@ -9,9 +9,32 @@ export PATH="$APP_DIR/bin:$PATH"
 
 # Check if the user has PyGObject installed before launching
 if ! python3 -c "import gi" &> /dev/null; then
-    echo "Error: Python PyGObject is not installed."
-    echo "Please install it via your package manager (e.g., 'sudo pacman -S python-gobject' or 'sudo apt install python3-gi')."
-    exit 1
+    SCRIPT_PATH="$APP_DIR/scripts/install_dependencies.sh"
+    if [ -t 1 ]; then
+        echo "Dependencies missing. Installing them now..."
+        bash "$SCRIPT_PATH"
+        # Re-check after installation
+        if ! python3 -c "import gi" &> /dev/null; then
+            echo "Failed to install dependencies."
+            exit 1
+        fi
+    else
+        CMD="bash '$SCRIPT_PATH'; echo ''; read -p 'Press Enter to close...'"
+        if command -v x-terminal-emulator >/dev/null; then
+            x-terminal-emulator -e bash -c "$CMD"
+        elif command -v gnome-terminal >/dev/null; then
+            gnome-terminal -- bash -c "$CMD"
+        elif command -v konsole >/dev/null; then
+            konsole -e bash -c "$CMD"
+        elif command -v xfce4-terminal >/dev/null; then
+            xfce4-terminal -x bash -c "$CMD"
+        elif command -v xterm >/dev/null; then
+            xterm -e bash -c "$CMD"
+        else
+            echo "Could not find a terminal emulator. Please run $SCRIPT_PATH manually."
+        fi
+        exit 1
+    fi
 fi
 
 # Launch the GTK app

@@ -14,14 +14,15 @@ fi
 # Ensure GTK typelibs can be found by PyGObject
 export GI_TYPELIB_PATH="/opt/homebrew/lib/girepository-1.0:/usr/local/lib/girepository-1.0:${GI_TYPELIB_PATH:-}"
 
-# Check for GTK4 and PyGObject via Python import test
-if ! "$PYTHON_CMD" -c "import gi; gi.require_version('Gtk', '4.0')" &> /dev/null; then
-    osascript -e 'display dialog "Missing required dependencies: gtk4 or pygobject3. Please install them via Homebrew." buttons {"OK"} default button "OK" with title "Dependency Error" with icon stop'
-    exit 1
-fi
-
 # Get the path to the app bundle resources folder
 RESOURCES_PATH="$(dirname "$0")/../Resources"
+
+# Check for GTK4 and PyGObject via Python import test
+if ! "$PYTHON_CMD" -c "import gi; gi.require_version('Gtk', '4.0')" &> /dev/null; then
+    osascript -e "tell application \"Terminal\" to do script \"bash '${RESOURCES_PATH}/scripts/install_dependencies.sh'\""
+    osascript -e 'display dialog "Installing missing dependencies in a new Terminal window.\n\nPlease wait for the script to finish, then restart this application." buttons {"OK"} default button "OK" with title "Installing Dependencies" with icon caution'
+    exit 1
+fi
 
 # Launch the application
 exec "$PYTHON_CMD" "${RESOURCES_PATH}/src/main.py" "$@"

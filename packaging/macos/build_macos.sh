@@ -20,6 +20,7 @@ chmod +x "${MACOS}/${APP_NAME}"
 
 echo "Copying application resources..."
 cp -r src "${RESOURCES}/"
+cp -r scripts "${RESOURCES}/"
 
 echo "Building DMG..."
 DMG_NAME="${APP_NAME}.dmg"
