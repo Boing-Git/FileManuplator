@@ -55,9 +55,9 @@ jobs:
         run: |
           mkdir -p bin
           # Portable ffmpeg
-          wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-          tar -xJf ffmpeg-release-amd64-static.tar.xz
-          cp ffmpeg-*-amd64-static/ffmpeg bin/
+          wget https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          tar -xJf ffmpeg-master-latest-linux64-gpl.tar.xz
+          cp ffmpeg-master-latest-linux64-gpl/bin/ffmpeg bin/
 
           # Portable pandoc
           wget "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
@@ -206,23 +206,6 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          # Fix: packaging/windows/build_windows.sh's PyInstaller .spec
-          # hardcodes 'C:/msys64/ucrt64/lib/girepository-1.0' as a data
-          # path, but setup-msys2 installs to a dynamic temp location
-          # (D:\a\_temp\msys64 on this runner) unless pinned — hence
-          # "Unable to find 'C:/msys64/ucrt64/lib/girepository-1.0'".
-          # Pinning here matches the runner's real MSYS2 install to what
-          # the spec expects, without needing to touch that script.
-          # Trade-off: C: is the runner's slower system disk vs D:'s
-          # faster scratch disk, so this costs a bit of install time.
-          #
-          # Fix (round 2): `location` is the PARENT directory setup-msys2
-          # installs into — it creates its own `msys64\` folder inside
-          # whatever you give it. Setting this to `C:\msys64` therefore
-          # produced `C:\msys64\msys64\...` (visible in the actual log:
-          # "Python environment: C:/msys64/msys64/ucrt64"), not
-          # `C:\msys64\...`. The parent needs to be the drive root.
-          location: C:\
           install: >-
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip

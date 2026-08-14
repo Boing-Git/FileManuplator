@@ -15,9 +15,11 @@ MAIN_SCRIPT="src/main.py"
 echo "Building Windows executable with PyInstaller..."
 # Force PyInstaller to include GTK schemas and typelibs
 # Use --onedir and --windowed flags (do NOT use --onefile as it causes slow GTK extraction times)
+GI_REPO_PATH=$(cygpath -m /ucrt64/lib/girepository-1.0)
+
 pyinstaller --noconfirm --onedir --windowed \
     --name "$APP_NAME" \
-    --add-data "C:/msys64/ucrt64/lib/girepository-1.0;lib/girepository-1.0" \
+    --add-data "${GI_REPO_PATH};lib/girepository-1.0" \
     "$MAIN_SCRIPT"
 
 echo "Copying libmagic-1.dll to prevent magic crashes on boot..."
