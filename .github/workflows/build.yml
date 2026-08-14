@@ -120,11 +120,17 @@ jobs:
           # rejects outright (icon must be a real, square image). Use the
           # repo's icon if one exists, otherwise generate a real placeholder
           # with the ImageMagick AppImage we already downloaded.
+          #
+          # Fix (round 2): the first placeholder used `-annotate` to draw an
+          # "A" glyph, which needs FreeType to rasterize a font — this
+          # runner has no fonts installed, so annotate failed with
+          # "unable to read font `(null)'". Draw a plain filled circle
+          # instead: it's a valid square icon and needs no font at all.
           if [ -f packaging/linux/icon.png ]; then
             cp packaging/linux/icon.png AppDir/any2any.png
           else
             ./bin/magick -size 256x256 xc:'#1B3A6B' -fill '#A8C7FA' \
-              -gravity center -pointsize 140 -annotate 0 'A' AppDir/any2any.png
+              -draw "circle 128,128 128,32" AppDir/any2any.png
           fi
 
           wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
@@ -178,6 +184,7 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
+            mingw-w64-ucrt-x86_64-python-yaml
             mingw-w64-ucrt-x86_64-gtk4
             mingw-w64-ucrt-x86_64-libadwaita
             mingw-w64-ucrt-x86_64-python-gobject
@@ -202,7 +209,13 @@ jobs:
 
       - name: Build Exe
         run: |
-          pip install --break-system-packages typer rich pyyaml
+          # Fix: pyyaml ships a C extension, and PyPI has no prebuilt wheel
+          # for MSYS2's mingw_x86_64_ucrt_gnu Python ABI — pip fell back to
+          # building it from source, which then failed for lack of a C
+          # toolchain (none is installed in this job). typer/rich are pure
+          # Python (universal wheels), so pip still handles those fine;
+          # pyyaml now comes from the native msys2 package installed above.
+          pip install --break-system-packages typer rich
           bash packaging/windows/build_windows.sh
 
       - name: Zip Artifact
