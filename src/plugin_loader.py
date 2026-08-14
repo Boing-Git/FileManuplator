@@ -1,4 +1,4 @@
-"""Dynamic YAML plugin loader for any2any.
+"""Dynamic YAML plugin loader for filemanuplator.
 
 Plugins are YAML files that define a target, accepted mime_types, and a declarative pipeline of actions.
 """
@@ -29,7 +29,7 @@ def load_plugins() -> None:
     bundled_dir = Path(__file__).parent / "plugins"
     
     # Look for user plugins
-    user_dir = Path.home() / ".local" / "share" / "any2any" / "plugins"
+    user_dir = Path.home() / ".local" / "share" / "filemanuplator" / "plugins"
     
     dirs_to_check = [bundled_dir, user_dir]
     

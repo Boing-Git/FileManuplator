@@ -1,8 +1,8 @@
-# any2any 🔄
+# filemanuplator 🔄
 
-**any2any** is a universal file converter wrapped in a modern, responsive GTK4 + Libadwaita graphical interface. 
+**filemanuplator** is a universal file converter wrapped in a modern, responsive GTK4 + Libadwaita graphical interface. 
 
-Rather than reinventing the wheel, any2any acts as a smart routing layer on top of industry-standard conversion engines (**FFmpeg**, **ImageMagick**, and **Pandoc**). It detects files by their actual content (MIME type)—not just their extension—and automatically routes them to the correct tool with the optimal arguments.
+Rather than reinventing the wheel, filemanuplator acts as a smart routing layer on top of industry-standard conversion engines (**FFmpeg**, **ImageMagick**, and **Pandoc**). It detects files by their actual content (MIME type)—not just their extension—and automatically routes them to the correct tool with the optimal arguments.
 
 ## ✨ Features
 
@@ -19,7 +19,7 @@ Rather than reinventing the wheel, any2any acts as a smart routing layer on top 
 
 ## 📦 Installation (End Users)
 
-The easiest way to use any2any is to download the pre-packaged release, which includes statically compiled versions of the heavy conversion engines (FFmpeg, ImageMagick, Pandoc) so you don't have to install them manually.
+The easiest way to use filemanuplator is to download the pre-packaged release, which includes statically compiled versions of the heavy conversion engines (FFmpeg, ImageMagick, Pandoc) so you don't have to install them manually.
 
 ### 1. Install System Dependencies
 Because this is a native GTK4 Python application, you must install the PyGObject bindings via your system's package manager:
@@ -29,8 +29,8 @@ Because this is a native GTK4 Python application, you must install the PyGObject
 * **Fedora:** `sudo dnf install python3-gobject gtk4 libadwaita`
 
 ### 2. Download and Run
-1. Head over to the [Releases page](../../releases) and download the latest `any2any-linux-x86_64.tar.gz`.
+1. Head over to the [Releases page](../../releases) and download the latest `filemanuplator-linux-x86_64.tar.gz`.
 2. Extract the archive.
 3. Open your terminal in the extracted folder and run:
    ```bash
-   ./any2any
+   ./filemanuplator

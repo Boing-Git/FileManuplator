@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""any2any — GTK4 + libadwaita graphical front-end for the any2any CLI.
+"""filemanuplator — GTK4 + libadwaita graphical front-end for the filemanuplator CLI.
 
 This is a UI layer on top of the exact same detector/config/engine modules
-the CLI uses — not a reimplementation. Everything `any2any convert` and
-`any2any formats` offer is available here: content-based MIME detection,
+the CLI uses — not a reimplementation. Everything `filemanuplator convert` and
+`filemanuplator formats` offer is available here: content-based MIME detection,
 the full routing table (including the generic text fallback), raw-text
 structure preservation, the markdown-extension tie-break, PDF engine
 fallback, missing-binary detection, and overwrite protection.
@@ -26,7 +26,7 @@ from config import ROUTES, ConversionRoute, resolve_route  # noqa: E402
 from detector import detect_mime_type  # noqa: E402
 from engine import BinaryNotFoundError, ConversionResult, resolve_binary, run_conversion  # noqa: E402
 
-APP_ID = "dev.any2any.Converter"
+APP_ID = "dev.filemanuplator.Converter"
 CSS_PATH = Path(__file__).resolve().parent / "style.css"
 
 
@@ -60,7 +60,7 @@ def icon_name_for(mime_type: str, raw_text: bool) -> str:
 
 
 class FormatsPage(Adw.NavigationPage):
-    """Browsable, searchable list mirroring `any2any formats`."""
+    """Browsable, searchable list mirroring `filemanuplator formats`."""
 
     def __init__(self) -> None:
         super().__init__(title="Supported Formats")
@@ -208,7 +208,7 @@ class PluginsPage(Adw.NavigationPage):
         # Better: just scan plugins folder and read YAMLs directly for the UI
         from pathlib import Path
         bundled_dir = Path(__file__).parent / "plugins"
-        user_dir = Path.home() / ".local" / "share" / "any2any" / "plugins"
+        user_dir = Path.home() / ".local" / "share" / "filemanuplator" / "plugins"
         dirs = [bundled_dir, user_dir]
         
         flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=1)
@@ -239,7 +239,7 @@ class PluginsPage(Adw.NavigationPage):
                     pass
 
         if count == 0:
-            empty = Adw.StatusPage(title="No Plugins Found", description="Drop .yaml files in ~/.local/share/any2any/plugins/", icon_name="edit-clear-symbolic")
+            empty = Adw.StatusPage(title="No Plugins Found", description="Drop .yaml files in ~/.local/share/filemanuplator/plugins/", icon_name="edit-clear-symbolic")
             outer.append(empty)
         else:
             outer.append(flow)
@@ -254,7 +254,7 @@ class MainWindow(Adw.ApplicationWindow):
     """The primary convert view: pick a file, pick a format, convert."""
 
     def __init__(self, app: Adw.Application) -> None:
-        super().__init__(application=app, title="any2any")
+        super().__init__(application=app, title="filemanuplator")
         self.set_default_size(560, 780)
 
         self.current_file: Path | None = None
@@ -284,12 +284,12 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar = Adw.ToolbarView()
 
         header = Adw.HeaderBar()
-        header.set_title_widget(Adw.WindowTitle(title="any2any", subtitle="Universal file converter"))
+        header.set_title_widget(Adw.WindowTitle(title="filemanuplator", subtitle="Universal file converter"))
 
         menu = Gio.Menu()
         menu.append("Supported formats", "win.show-formats")
         menu.append("Installed plugins", "win.show-plugins")
-        menu.append("About any2any", "win.show-about")
+        menu.append("About filemanuplator", "win.show-about")
         menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu)
         header.pack_end(menu_button)
 
@@ -374,7 +374,7 @@ class MainWindow(Adw.ApplicationWindow):
         scroller.set_child(clamp)
         toolbar.set_content(scroller)
 
-        page = Adw.NavigationPage(title="any2any")
+        page = Adw.NavigationPage(title="filemanuplator")
         page.set_child(toolbar)
         return page
 
@@ -553,7 +553,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.format_group.set_description(None)
             row = Adw.ActionRow(
                 title="No conversion route available",
-                subtitle=f"any2any doesn't know how to convert '{self.current_mime}'.",
+                subtitle=f"filemanuplator doesn't know how to convert '{self.current_mime}'.",
             )
             row.add_prefix(Gtk.Image.new_from_icon_name("dialog-warning-symbolic"))
             self.format_group.add(row)
@@ -790,17 +790,17 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _show_about(self) -> None:
         about = Adw.AboutDialog(
-            application_name="any2any",
+            application_name="filemanuplator",
             application_icon="document-send-symbolic",
             version="0.1.0",
-            developer_name="any2any",
+            developer_name="filemanuplator",
             comments="A universal file converter that routes to ffmpeg, ImageMagick, and pandoc.",
             license_type=Gtk.License.GPL_3_0, 
         )
         about.present(self)
 
 
-class Any2AnyApplication(Adw.Application):
+class FileManuplatorApplication(Adw.Application):
     def __init__(self) -> None:
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_OPEN)
         self.window: MainWindow | None = None
@@ -837,7 +837,7 @@ class Any2AnyApplication(Adw.Application):
 
 
 def main() -> int:
-    app = Any2AnyApplication()
+    app = FileManuplatorApplication()
     return app.run(None)
 
 

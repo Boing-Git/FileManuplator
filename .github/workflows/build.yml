@@ -70,21 +70,21 @@ jobs:
 
       - name: Create Tarball
         run: |
-          mkdir -p any2any-linux
+          mkdir -p filemanuplator-linux
           # Fix: this used to be a single `cp -r src bin packaging plugins
-          # any2any-linux/` — if any one of those directories doesn't exist
+          # filemanuplator-linux/` — if any one of those directories doesn't exist
           # in the repo (plugins/ currently doesn't), cp aborts and takes
           # the whole step down with exit code 1. Copy what's actually
           # there and warn (not fail) on anything missing, so a genuinely
           # absent directory doesn't block every downstream packaging step.
           for d in src bin packaging plugins; do
             if [ -d "$d" ]; then
-              cp -r "$d" any2any-linux/
+              cp -r "$d" filemanuplator-linux/
             else
               echo "::warning::Create Tarball: '$d/' not found in repo, skipping"
             fi
           done
-          tar -czf any2any-linux-x86_64.tar.gz any2any-linux/
+          tar -czf filemanuplator-linux-x86_64.tar.gz filemanuplator-linux/
 
       - name: Build AppImage
         run: |
@@ -115,16 +115,16 @@ jobs:
           EOF
           chmod +x AppDir/AppRun
 
-          cat << 'EOF' > AppDir/any2any.desktop
+          cat << 'EOF' > AppDir/filemanuplator.desktop
           [Desktop Entry]
-          Name=any2any
-          Exec=any2any
-          Icon=any2any
+          Name=filemanuplator
+          Exec=filemanuplator
+          Icon=filemanuplator
           Type=Application
           Categories=Utility;
           EOF
 
-          # Fix: `touch any2any.png` made a 0-byte file, which linuxdeploy
+          # Fix: `touch filemanuplator.png` made a 0-byte file, which linuxdeploy
           # rejects outright (icon must be a real, square image). Use the
           # repo's icon if one exists, otherwise generate a real placeholder
           # with the ImageMagick AppImage we already downloaded.
@@ -135,10 +135,10 @@ jobs:
           # "unable to read font `(null)'". Draw a plain filled circle
           # instead: it's a valid square icon and needs no font at all.
           if [ -f packaging/linux/icon.png ]; then
-            cp packaging/linux/icon.png AppDir/any2any.png
+            cp packaging/linux/icon.png AppDir/filemanuplator.png
           else
             ./bin/magick -size 256x256 xc:'#1B3A6B' -fill '#A8C7FA' \
-              -draw "circle 128,128 128,32" AppDir/any2any.png
+              -draw "circle 128,128 128,32" AppDir/filemanuplator.png
           fi
 
           wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
@@ -174,25 +174,25 @@ jobs:
           # fully-qualified ref (name/arch/branch) so flatpak never falls
           # back to fuzzy matching in the first place.
           RUNTIME_VERSION=$(grep -oP "runtime-version[\"']?\s*:\s*[\"']?\K[0-9]+" \
-            packaging/linux/org.any2any.Converter.yml | head -n1)
+            packaging/linux/org.filemanuplator.Converter.yml | head -n1)
           if [ -z "$RUNTIME_VERSION" ]; then
-            echo "::error::Could not find runtime-version in packaging/linux/org.any2any.Converter.yml"
+            echo "::error::Could not find runtime-version in packaging/linux/org.filemanuplator.Converter.yml"
             exit 1
           fi
           flatpak install --user -y --noninteractive flathub \
             "org.gnome.Platform/x86_64/${RUNTIME_VERSION}" \
             "org.gnome.Sdk/x86_64/${RUNTIME_VERSION}"
-          flatpak-builder --user --repo=repo build-dir packaging/linux/org.any2any.Converter.yml --force-clean
-          flatpak build-bundle repo any2any.flatpak org.any2any.Converter
+          flatpak-builder --user --repo=repo build-dir packaging/linux/org.filemanuplator.Converter.yml --force-clean
+          flatpak build-bundle repo filemanuplator.flatpak org.filemanuplator.Converter
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           files: |
-            any2any-linux-x86_64.tar.gz
-            Any2Any-x86_64.AppImage
-            any2any.flatpak
+            filemanuplator-linux-x86_64.tar.gz
+            FileManuplator-x86_64.AppImage
+            filemanuplator.flatpak
 
   build-windows:
     runs-on: windows-latest
@@ -245,14 +245,14 @@ jobs:
 
       - name: Zip Artifact
         run: |
-          Compress-Archive -Path dist/Any2Any -DestinationPath Any2Any-Windows.zip
+          Compress-Archive -Path dist/FileManuplator -DestinationPath FileManuplator-Windows.zip
         shell: powershell
 
       - name: Upload Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
-          files: Any2Any-Windows.zip
+          files: FileManuplator-Windows.zip
 
   build-macos:
     runs-on: macos-latest
@@ -267,10 +267,10 @@ jobs:
       - name: Build macOS App
         run: |
           bash packaging/macos/build_macos.sh
-          # Assumes it creates Any2Any.dmg
+          # Assumes it creates FileManuplator.dmg
 
       - name: Upload Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
-          files: Any2Any.dmg
+          files: FileManuplator.dmg

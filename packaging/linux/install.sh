@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-APP_NAME="any2any"
-APP_EXEC="any2any"
+APP_NAME="filemanuplator"
+APP_EXEC="filemanuplator"
 
 # 1. Creates ~/.local/share/APP_NAME and ~/.local/bin/APP_NAME.
 INSTALL_DIR="$HOME/.local/share/$APP_NAME"
@@ -14,7 +14,7 @@ mkdir -p "$INSTALL_DIR/bin"
 mkdir -p "$BIN_DIR"
 mkdir -p "$DESKTOP_DIR"
 
-echo "Installing Any2Any to $INSTALL_DIR..."
+echo "Installing FileManuplator to $INSTALL_DIR..."
 # Assuming we run this from the project root
 cp -r src "$INSTALL_DIR/"
 # Note: if there is an icon or other assets, copy them here too.
@@ -24,8 +24,8 @@ echo "Creating launcher script in $BIN_DIR..."
 cat << 'EOF' > "$BIN_DIR/$APP_EXEC"
 #!/usr/bin/env bash
 # Pre-pend the bundled bin/ directory to the PATH
-export PATH="$HOME/.local/share/any2any/bin:$PATH"
-exec python3 "$HOME/.local/share/any2any/src/main.py" "$@"
+export PATH="$HOME/.local/share/filemanuplator/bin:$PATH"
+exec python3 "$HOME/.local/share/filemanuplator/src/main.py" "$@"
 EOF
 
 chmod +x "$BIN_DIR/$APP_EXEC"
@@ -34,7 +34,7 @@ chmod +x "$BIN_DIR/$APP_EXEC"
 echo "Creating desktop entry..."
 cat << EOF > "$DESKTOP_DIR/$APP_NAME.desktop"
 [Desktop Entry]
-Name=Any2Any
+Name=FileManuplator
 Comment=Universal file converter
 Exec=$BIN_DIR/$APP_EXEC
 Icon=$INSTALL_DIR/src/icon.png
@@ -44,4 +44,4 @@ Categories=Utility;
 EOF
 
 echo "Installation complete!"
-echo "You can now run '$APP_EXEC' from your terminal or find Any2Any in your application menu."
+echo "You can now run '$APP_EXEC' from your terminal or find FileManuplator in your application menu."

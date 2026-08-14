@@ -1,8 +1,8 @@
-app-id: org.any2any.Converter
+app-id: org.filemanuplator.Converter
 runtime: org.gnome.Platform
 runtime-version: '45'
 sdk: org.gnome.Sdk
-command: any2any
+command: filemanuplator
 finish-args:
   - --share=network
   - --share=ipc
@@ -11,10 +11,10 @@ finish-args:
   - --device=dri
   - --filesystem=host
 modules:
-  - name: any2any
+  - name: filemanuplator
     buildsystem: simple
     build-commands:
-      - install -D src/main.py /app/bin/any2any
+      - install -D src/main.py /app/bin/filemanuplator
       - cp -r src /app/src
       - cp -r bin/* /app/bin/
     sources:

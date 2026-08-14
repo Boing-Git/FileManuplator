@@ -1,8 +1,8 @@
-# any2any Plugin System
+# filemanuplator Plugin System
 
-any2any supports simple, declarative YAML plugins. Anyone can create powerful custom conversion pipelines by simply explaining the steps the file needs to go through.
+filemanuplator supports simple, declarative YAML plugins. Anyone can create powerful custom conversion pipelines by simply explaining the steps the file needs to go through.
 
-Drop any `.yaml` file into `~/.local/share/any2any/plugins/` (or this `src/plugins/` folder) and it will instantly become available as a conversion target.
+Drop any `.yaml` file into `~/.local/share/filemanuplator/plugins/` (or this `src/plugins/` folder) and it will instantly become available as a conversion target.
 
 ## Structure of a YAML Plugin
 

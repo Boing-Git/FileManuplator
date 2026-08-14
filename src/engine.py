@@ -1,6 +1,6 @@
 """Builds and executes the external-tool commands that do the actual conversion.
 
-any2any never implements conversion logic itself — this module's only job is
+filemanuplator never implements conversion logic itself — this module's only job is
 to turn a (tool, input path, output path) triple into an argv list and run it.
 
 The one exception is PANDOC + raw_text routes (plain text, source code,

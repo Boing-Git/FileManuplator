@@ -9,7 +9,7 @@ if [[ -z "$MSYSTEM" ]]; then
     exit 1
 fi
 
-APP_NAME="Any2Any"
+APP_NAME="FileManuplator"
 MAIN_SCRIPT="src/main.py"
 
 echo "Building Windows executable with PyInstaller..."

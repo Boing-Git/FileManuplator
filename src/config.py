@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 class Tool(str, Enum):
-    """External binaries any2any can route work to."""
+    """External binaries filemanuplator can route work to."""
 
     IMAGEMAGICK = "imagemagick"
     FFMPEG = "ffmpeg"
@@ -43,7 +43,7 @@ class ConversionRoute:
     raw_text: bool = False
 
 
-# Pandoc writer name for each output extension any2any exposes. Passed
+# Pandoc writer name for each output extension filemanuplator exposes. Passed
 # explicitly via `-t` so the writer never depends on guessing from the
 # output filename's extension.
 PANDOC_WRITERS: dict[str, str] = {

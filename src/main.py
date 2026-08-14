@@ -1,9 +1,9 @@
-"""any2any CLI entry point.
+"""filemanuplator CLI entry point.
 
-`any2any` detects a file's real type (via libmagic, ignoring extensions),
+`filemanuplator` detects a file's real type (via libmagic, ignoring extensions),
 shows which formats it can be converted to, and routes the job to the
 appropriate external tool (ImageMagick / ffmpeg / pandoc) via subprocess.
-any2any never performs conversion logic itself.
+filemanuplator never performs conversion logic itself.
 """
 
 from __future__ import annotations
@@ -27,14 +27,14 @@ from engine import BinaryNotFoundError, resolve_binary, run_conversion
 from plugin_loader import load_plugins, PLUGIN_ROUTES
 
 app = typer.Typer(
-    name="any2any",
+    name="filemanuplator",
     help="Universal file converter — detects a file's type and routes it to the right tool.",
     add_completion=False,
 )
 console = Console()
 
 def _print_header():
-    title = Text(" ♻️ any2any ", style="bold white on blue", justify="center")
+    title = Text(" ♻️ filemanuplator ", style="bold white on blue", justify="center")
     console.print(Panel(title, box=box.DOUBLE, border_style="blue", expand=False))
 
 def _process_file(filepath: Path, target: str, output_path: Optional[Path] = None) -> bool:
@@ -219,7 +219,7 @@ def convert(
 
 @app.command(name="formats")
 def list_formats() -> None:
-    """List every MIME type any2any currently knows how to route."""
+    """List every MIME type filemanuplator currently knows how to route."""
     _print_header()
     load_plugins()
     table = Table(title="Supported Input Formats", box=box.SIMPLE_HEAVY, border_style="blue")
