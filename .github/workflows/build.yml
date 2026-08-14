@@ -5,57 +5,108 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach artifacts to (e.g. v1.2.3) — required for manual runs, since workflow_dispatch has no tag of its own'
+        required: true
+
+# Fix: without this, softprops/action-gh-release gets a 403 on repos/orgs
+# that default GITHUB_TOKEN to read-only.
+permissions:
+  contents: write
+
+env:
+  PANDOC_VERSION: "3.1.9"
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    # Fix: ubuntu-latest runners ship without FUSE, so any bare AppImage
+    # invocation (linuxdeploy, the ImageMagick AppImage) fails immediately
+    # with a libfuse.so.2 error. This makes every AppImage self-extract
+    # and run instead of mounting via FUSE.
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip flatpak-builder curl wget
+          sudo apt-get install -y \
+            python3 python3-pip \
+            python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
+            flatpak flatpak-builder \
+            curl wget
+          # Fix: previously nothing installed GTK4/libadwaita bindings at
+          # all — python3-gi + the gir1.2-* typelibs are what let `import gi`
+          # / Gtk.Window actually work in this job.
           pip3 install --break-system-packages typer rich pyyaml
 
       - name: Download Static Binaries
         run: |
           mkdir -p bin
-          # Download portable ffmpeg
+          # Portable ffmpeg
           wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
           tar -xJf ffmpeg-release-amd64-static.tar.xz
           cp ffmpeg-*-amd64-static/ffmpeg bin/
-          
-          # Download portable pandoc
-          wget https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-linux-amd64.tar.gz
-          tar -xzf pandoc-3.1.9-linux-amd64.tar.gz
-          cp pandoc-3.1.9/bin/pandoc bin/
-          
-          # Download portable ImageMagick (AppImage)
+
+          # Portable pandoc
+          wget "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
+          tar -xzf "pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
+          cp "pandoc-${PANDOC_VERSION}/bin/pandoc" bin/
+
+          # Portable ImageMagick (AppImage)
           wget https://github.com/ImageMagick/ImageMagick/releases/download/7.1.1-21/ImageMagick--gcc-x86_64.AppImage -O bin/magick
           chmod +x bin/magick bin/ffmpeg bin/pandoc
 
       - name: Create Tarball
         run: |
           mkdir -p any2any-linux
-          cp -r src bin packaging plugins any2any-linux/
+          # Fix: this used to be a single `cp -r src bin packaging plugins
+          # any2any-linux/` — if any one of those directories doesn't exist
+          # in the repo (plugins/ currently doesn't), cp aborts and takes
+          # the whole step down with exit code 1. Copy what's actually
+          # there and warn (not fail) on anything missing, so a genuinely
+          # absent directory doesn't block every downstream packaging step.
+          for d in src bin packaging plugins; do
+            if [ -d "$d" ]; then
+              cp -r "$d" any2any-linux/
+            else
+              echo "::warning::Create Tarball: '$d/' not found in repo, skipping"
+            fi
+          done
           tar -czf any2any-linux-x86_64.tar.gz any2any-linux/
 
       - name: Build AppImage
         run: |
-          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/bin AppDir/usr/lib
           cp -r src/* AppDir/usr/bin/
           cp -r bin/* AppDir/usr/bin/
-          # Basic AppRun
+
+          # Fix: the old AppRun called system `python3`, so the AppImage
+          # silently depended on the host having python3 + gi + your pip
+          # deps importable — defeating the point of a portable AppImage.
+          # Bundle the actual interpreter and its stdlib/site-packages so
+          # it's self-contained. (Standard AppImage caveat still applies:
+          # this ties the glibc floor to the build host's glibc version.)
+          cp "$(command -v python3)" AppDir/usr/bin/python3
+          mkdir -p AppDir/usr/lib/python3/dist-packages
+          cp -r /usr/lib/python3/dist-packages/* AppDir/usr/lib/python3/dist-packages/
+          PY_LIBDIR="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
+          cp "${PY_LIBDIR}"/libpython3*.so* AppDir/usr/lib/ 2>/dev/null || true
+
           cat << 'EOF' > AppDir/AppRun
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="${HERE}/usr/bin:${PATH}"
-          exec python3 "${HERE}/usr/bin/main.py" "$@"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          export PYTHONHOME="${HERE}/usr"
+          export PYTHONPATH="${HERE}/usr/lib/python3/dist-packages:${PYTHONPATH}"
+          exec "${HERE}/usr/bin/python3" "${HERE}/usr/bin/main.py" "$@"
           EOF
           chmod +x AppDir/AppRun
-          
-          # Basic Desktop File
+
           cat << 'EOF' > AppDir/any2any.desktop
           [Desktop Entry]
           Name=any2any
@@ -64,22 +115,49 @@ jobs:
           Type=Application
           Categories=Utility;
           EOF
-          
-          # Dummy icon
-          touch AppDir/any2any.png
-          
+
+          # Fix: `touch any2any.png` made a 0-byte file, which linuxdeploy
+          # rejects outright (icon must be a real, square image). Use the
+          # repo's icon if one exists, otherwise generate a real placeholder
+          # with the ImageMagick AppImage we already downloaded.
+          if [ -f packaging/linux/icon.png ]; then
+            cp packaging/linux/icon.png AppDir/any2any.png
+          else
+            ./bin/magick -size 256x256 xc:'#1B3A6B' -fill '#A8C7FA' \
+              -gravity center -pointsize 140 -annotate 0 'A' AppDir/any2any.png
+          fi
+
           wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
-          chmod +x linuxdeploy-x86_64.AppImage
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          # Fix: this plugin is what actually bundles GTK4/libadwaita's
+          # shared libs, GLib schemas, GI typelibs, and icon themes into the
+          # AppDir. Without it the AppImage runs fine on the build host and
+          # breaks on any machine that doesn't already have GTK4 installed.
+          wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-gtk.sh
+          export LINUXDEPLOY="$(pwd)/linuxdeploy-x86_64.AppImage"
+          export DEPLOY_GTK_VERSION=4
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin gtk --output appimage
 
       - name: Build Flatpak
         run: |
-          flatpak-builder --repo=repo build-dir packaging/linux/org.any2any.Converter.yml --force-clean
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          # Fix: flatpak-builder needs the GNOME runtime actually installed
+          # locally before it can build against it — nothing pulled it in
+          # the original workflow. Read the version from the manifest
+          # itself rather than hardcoding one, since GNOME runtimes go EOL
+          # roughly yearly (48 went EOL March 2026) and hardcoding here
+          # would silently drift out of sync with packaging/linux/*.yml.
+          RUNTIME_VERSION=$(grep -oP '"?runtime-version"?\s*:\s*"?\K[0-9]+' \
+            packaging/linux/org.any2any.Converter.yml | head -n1)
+          flatpak install --user -y flathub \
+            "org.gnome.Platform//${RUNTIME_VERSION}" "org.gnome.Sdk//${RUNTIME_VERSION}"
+          flatpak-builder --user --repo=repo build-dir packaging/linux/org.any2any.Converter.yml --force-clean
           flatpak build-bundle repo any2any.flatpak org.any2any.Converter
 
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           files: |
             any2any-linux-x86_64.tar.gz
             Any2Any-x86_64.AppImage
@@ -106,8 +184,21 @@ jobs:
             mingw-w64-ucrt-x86_64-pyinstaller
             mingw-w64-ucrt-x86_64-imagemagick
             mingw-w64-ucrt-x86_64-ffmpeg
-            mingw-w64-ucrt-x86_64-pandoc
             mingw-w64-ucrt-x86_64-file
+            unzip
+
+      # Fix: mingw-w64-ucrt-x86_64-pandoc does not appear to exist in the
+      # MSYS2 UCRT64 repo (only a `python-pandocfilters` helper package
+      # does) — the install step above would fail outright with an
+      # unresolvable-package error before ever reaching the build. Pandoc
+      # ships its own portable Windows zip upstream, same as the Linux job
+      # already does, so just fetch that instead of relying on MSYS2 to
+      # package it.
+      - name: Download Portable Pandoc
+        run: |
+          curl -L -o pandoc.zip "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-windows-x86_64.zip"
+          unzip -o pandoc.zip
+          cp "pandoc-${PANDOC_VERSION}/pandoc.exe" /ucrt64/bin/
 
       - name: Build Exe
         run: |
@@ -120,8 +211,9 @@ jobs:
         shell: powershell
 
       - name: Upload Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           files: Any2Any-Windows.zip
 
   build-macos:
@@ -137,9 +229,10 @@ jobs:
       - name: Build macOS App
         run: |
           bash packaging/macos/build_macos.sh
-          # Assume it creates Any2Any.dmg
+          # Assumes it creates Any2Any.dmg
 
       - name: Upload Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           files: Any2Any.dmg
