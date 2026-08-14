@@ -161,10 +161,27 @@ jobs:
           # itself rather than hardcoding one, since GNOME runtimes go EOL
           # roughly yearly (48 went EOL March 2026) and hardcoding here
           # would silently drift out of sync with packaging/linux/*.yml.
-          RUNTIME_VERSION=$(grep -oP '"?runtime-version"?\s*:\s*"?\K[0-9]+' \
+          #
+          # Fix (round 2): the old pattern only matched a double-quoted or
+          # bare value and silently returned nothing on single-quoted YAML
+          # (runtime-version: '48'), which is the normal Flatpak-manifest
+          # style. That empty RUNTIME_VERSION turned "org.gnome.Platform//"
+          # into a versionless ref, which flatpak resolves by fuzzy-matching
+          # every published version and prompting interactively — which
+          # then auto-aborts with no TTY attached. Now: handle all three
+          # quote styles, fail loudly if nothing was found instead of
+          # silently continuing with an empty version, and request the
+          # fully-qualified ref (name/arch/branch) so flatpak never falls
+          # back to fuzzy matching in the first place.
+          RUNTIME_VERSION=$(grep -oP "runtime-version[\"']?\s*:\s*[\"']?\K[0-9]+" \
             packaging/linux/org.any2any.Converter.yml | head -n1)
-          flatpak install --user -y flathub \
-            "org.gnome.Platform//${RUNTIME_VERSION}" "org.gnome.Sdk//${RUNTIME_VERSION}"
+          if [ -z "$RUNTIME_VERSION" ]; then
+            echo "::error::Could not find runtime-version in packaging/linux/org.any2any.Converter.yml"
+            exit 1
+          fi
+          flatpak install --user -y --noninteractive flathub \
+            "org.gnome.Platform/x86_64/${RUNTIME_VERSION}" \
+            "org.gnome.Sdk/x86_64/${RUNTIME_VERSION}"
           flatpak-builder --user --repo=repo build-dir packaging/linux/org.any2any.Converter.yml --force-clean
           flatpak build-bundle repo any2any.flatpak org.any2any.Converter
 
@@ -198,7 +215,14 @@ jobs:
           # the spec expects, without needing to touch that script.
           # Trade-off: C: is the runner's slower system disk vs D:'s
           # faster scratch disk, so this costs a bit of install time.
-          location: C:\msys64
+          #
+          # Fix (round 2): `location` is the PARENT directory setup-msys2
+          # installs into — it creates its own `msys64\` folder inside
+          # whatever you give it. Setting this to `C:\msys64` therefore
+          # produced `C:\msys64\msys64\...` (visible in the actual log:
+          # "Python environment: C:/msys64/msys64/ucrt64"), not
+          # `C:\msys64\...`. The parent needs to be the drive root.
+          location: C:\
           install: >-
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
