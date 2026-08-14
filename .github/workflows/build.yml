@@ -36,11 +36,19 @@ jobs:
           sudo apt-get install -y \
             python3 python3-pip \
             python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
+            libgtk-4-dev libadwaita-1-dev pkg-config \
             flatpak flatpak-builder \
             curl wget
-          # Fix: previously nothing installed GTK4/libadwaita bindings at
-          # all — python3-gi + the gir1.2-* typelibs are what let `import gi`
-          # / Gtk.Window actually work in this job.
+          # Fix (round 1): previously nothing installed GTK4/libadwaita
+          # bindings at all — python3-gi + the gir1.2-* typelibs are what
+          # let `import gi` / Gtk.Window actually work in this job.
+          #
+          # Fix (round 2): that alone wasn't enough for linuxdeploy-plugin-gtk
+          # specifically — it locates GTK4's install dir by running
+          # `pkg-config --variable=libdir gtk4`, which needs gtk4.pc. The
+          # gir1.2-* runtime packages don't ship .pc files; only the
+          # -dev packages do (libgtk-4-dev, libadwaita-1-dev), hence
+          # "there is no 'libdir' variable for 'gtk4' library."
           pip3 install --break-system-packages typer rich pyyaml
 
       - name: Download Static Binaries
@@ -181,6 +189,16 @@ jobs:
         with:
           msystem: UCRT64
           update: true
+          # Fix: packaging/windows/build_windows.sh's PyInstaller .spec
+          # hardcodes 'C:/msys64/ucrt64/lib/girepository-1.0' as a data
+          # path, but setup-msys2 installs to a dynamic temp location
+          # (D:\a\_temp\msys64 on this runner) unless pinned — hence
+          # "Unable to find 'C:/msys64/ucrt64/lib/girepository-1.0'".
+          # Pinning here matches the runner's real MSYS2 install to what
+          # the spec expects, without needing to touch that script.
+          # Trade-off: C: is the runner's slower system disk vs D:'s
+          # faster scratch disk, so this costs a bit of install time.
+          location: C:\msys64
           install: >-
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
