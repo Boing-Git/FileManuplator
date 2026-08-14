@@ -2,6 +2,8 @@ name: Build and Release
 
 on:
   push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -87,7 +89,7 @@ jobs:
           cp "${PY_LIBDIR}"/libpython3*.so* AppDir/usr/lib/ 2>/dev/null || true
 
           cat << 'EOF' > AppDir/AppRun
-          #!/bin/sh"${{
+          #!/bin/sh
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="${HERE}/usr/bin:${PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
