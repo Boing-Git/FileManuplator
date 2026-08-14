@@ -249,6 +249,7 @@ jobs:
         run: |
           # Double check that the signature took place
           pkgutil --check-signature FileManuplator-installer-SIGNED.pkg
+          
 
       - name: Upload Release
         uses: softprops/action-gh-release@v3
