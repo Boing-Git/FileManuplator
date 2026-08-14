@@ -22,19 +22,30 @@ echo "Copying application resources..."
 cp -r src "${RESOURCES}/"
 cp -r scripts "${RESOURCES}/"
 
-echo "Building DMG..."
-DMG_NAME="${APP_NAME}.dmg"
-VOL_NAME="${APP_NAME} Installer"
+echo "Building PKG installer..."
+PKG_NAME="${APP_NAME}-installer.pkg"
+PKG_BUILD_DIR="${APP_NAME}-pkg-build"
 
-# Create a temporary folder to stage DMG contents
-STAGE_DIR=$(mktemp -d)
-cp -r "${APP_BUNDLE}" "${STAGE_DIR}/"
-# Add a symlink to /Applications for easy drag-and-drop installation
-ln -s /Applications "${STAGE_DIR}/Applications"
+# Set up the build folders
+mkdir -p "${PKG_BUILD_DIR}/payload"
+mkdir -p "${PKG_BUILD_DIR}/scripts"
 
-echo "Creating disk image..."
-hdiutil create -volname "${VOL_NAME}" -srcfolder "${STAGE_DIR}" -ov -format UDZO "${DMG_NAME}"
+# Move app bundle into payload
+cp -r "${APP_BUNDLE}" "${PKG_BUILD_DIR}/payload/"
 
-rm -rf "${STAGE_DIR}"
+# Copy postinstall script
+cp packaging/macos/postinstall "${PKG_BUILD_DIR}/scripts/"
+chmod +x "${PKG_BUILD_DIR}/scripts/postinstall"
 
-echo "macOS packaging complete: ${DMG_NAME}"
+echo "Creating package..."
+pkgbuild --root "${PKG_BUILD_DIR}/payload" \
+         --scripts "${PKG_BUILD_DIR}/scripts" \
+         --install-location /Applications \
+         --identifier dev.filemanuplator.Converter \
+         --version 1.0.0 \
+         "${PKG_NAME}"
+
+rm -rf "${PKG_BUILD_DIR}"
+rm -rf "${APP_BUNDLE}"
+
+echo "macOS packaging complete: ${PKG_NAME}"

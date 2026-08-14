@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# 1. Find the actual logged-in user (since this script is running as root)
+CURRENT_USER=$(stat -f %Su /dev/console)
+
+# 2. Locate Homebrew (checks both Apple Silicon and Intel Mac locations)
+if [ -f "/opt/homebrew/bin/brew" ]; then
+    BREW_BIN="/opt/homebrew/bin/brew"
+elif [ -f "/usr/local/bin/brew" ]; then
+    BREW_BIN="/usr/local/bin/brew"
+else
+    # If Homebrew is completely missing, pop up a native Mac error dialog and fail
+    sudo -u "$CURRENT_USER" osascript -e 'display dialog "Homebrew is required to install these dependencies.\n\nPlease open a terminal, install Homebrew, and try again." with title "Missing Dependency" buttons {"OK"} default button "OK" with icon stop'
+    exit 1
+fi
+
+# 3. Silently install GTK4, PyGObject, and libmagic in the background as the user
+sudo -u "$CURRENT_USER" "$BREW_BIN" install pygobject3 gtk4 libadwaita file-formula
+
+exit 0

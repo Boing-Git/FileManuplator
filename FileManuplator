@@ -7,14 +7,21 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # This forces engine.py to find our bundled ffmpeg/magick/pandoc FIRST
 export PATH="$APP_DIR/bin:$PATH"
 
-# Check if the user has PyGObject installed before launching
-if ! python3 -c "import gi" &> /dev/null; then
+# Check if the user has PyGObject and GTK4 installed before launching
+if ! python3 -c "import gi; gi.require_version('Gtk', '4.0')" &> /dev/null; then
+    if [ -f /etc/os-release ] && grep -qi 'ID=nixos' /etc/os-release; then
+        if [ -z "$IN_NIX_SHELL" ]; then
+            echo "NixOS detected. Launching via nix-shell..."
+            exec nix-shell "$APP_DIR/shell.nix" --run "\"$0\" $@"
+        fi
+    fi
+
     SCRIPT_PATH="$APP_DIR/scripts/install_dependencies.sh"
     if [ -t 1 ]; then
         echo "Dependencies missing. Installing them now..."
         bash "$SCRIPT_PATH"
         # Re-check after installation
-        if ! python3 -c "import gi" &> /dev/null; then
+        if ! python3 -c "import gi; gi.require_version('Gtk', '4.0')" &> /dev/null; then
             echo "Failed to install dependencies."
             exit 1
         fi

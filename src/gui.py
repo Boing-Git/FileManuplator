@@ -439,28 +439,19 @@ class MainWindow(Adw.ApplicationWindow):
     # ---- file selection ------------------------------------------------
 
     def _pick_file(self) -> None:
-        dialog = Gtk.FileChooserDialog(
-            title="Choose a file to convert",
-            transient_for=self,
-            action=Gtk.FileChooserAction.OPEN,
-        )
-        dialog.add_buttons(
-            "_Cancel", Gtk.ResponseType.CANCEL,
-            "_Open", Gtk.ResponseType.ACCEPT,
-        )
-        dialog.set_default_size(800, 600)
+        dialog = Gtk.FileDialog(title="Choose a file to convert")
 
-        def on_response(dialog_widget, response):
-            if response == Gtk.ResponseType.ACCEPT:
-                gfile = dialog_widget.get_file()
+        def on_open_ready(dialog, result):
+            try:
+                gfile = dialog.open_finish(result)
                 if gfile:
                     path = gfile.get_path()
                     if path:
                         self._load_file(Path(path))
-            dialog_widget.destroy()
+            except GLib.Error:
+                pass
 
-        dialog.connect("response", on_response)
-        dialog.present()
+        dialog.open(self, None, on_open_ready)
 
     def _on_drop(self, drop_target: Gtk.DropTarget, value: Gdk.FileList, x: float, y: float) -> bool:
         files = value.get_files()
@@ -623,34 +614,25 @@ class MainWindow(Adw.ApplicationWindow):
         self._update_convert_sensitivity()
 
     def _pick_output_path(self) -> None:
-        dialog = Gtk.FileChooserDialog(
-            title="Save converted file as",
-            transient_for=self,
-            action=Gtk.FileChooserAction.SAVE,
-        )
-        dialog.add_buttons(
-            "_Cancel", Gtk.ResponseType.CANCEL,
-            "_Save", Gtk.ResponseType.ACCEPT,
-        )
-        dialog.set_default_size(800, 600)
+        dialog = Gtk.FileDialog(title="Save converted file as")
 
         if self.current_file is not None and self.selected_target is not None:
             suggested = self.current_file.with_suffix(f".{self.selected_target}")
-            dialog.set_current_folder(Gio.File.new_for_path(str(suggested.parent)))
-            dialog.set_current_name(suggested.name)
+            dialog.set_initial_folder(Gio.File.new_for_path(str(suggested.parent)))
+            dialog.set_initial_name(suggested.name)
 
-        def on_response(dialog_widget, response):
-            if response == Gtk.ResponseType.ACCEPT:
-                gfile = dialog_widget.get_file()
+        def on_save_ready(dialog, result):
+            try:
+                gfile = dialog.save_finish(result)
                 if gfile:
                     path = gfile.get_path()
                     if path:
                         self._output_auto_follow = False
                         self._set_output_programmatically(path)
-            dialog_widget.destroy()
+            except GLib.Error:
+                pass
 
-        dialog.connect("response", on_response)
-        dialog.present()
+        dialog.save(self, None, on_save_ready)
 
     # ---- conversion ------------------------------------------------------
 

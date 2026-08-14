@@ -44,7 +44,7 @@ case "${OS}" in
         echo "macOS detected."
         if command -v brew >/dev/null 2>&1; then
             echo "Using Homebrew..."
-            brew install python gtk4 libadwaita pygobject3 ffmpeg imagemagick pandoc
+            yes | brew install python gtk4 libadwaita pygobject3 ffmpeg imagemagick pandoc
             pip3 install --break-system-packages typer rich pyyaml || pip3 install typer rich pyyaml
         else
             echo "Homebrew is required on macOS. Please install it first: https://brew.sh/"
