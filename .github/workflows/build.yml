@@ -232,6 +232,10 @@ jobs:
           security create-keychain -p "$PASS" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$PASS" build.keychain
+
+          # CRITICAL STEP 1: Add your temporary keychain to the macOS keychain search list
+          # If macOS doesn't search this keychain, productsign won't find the identity!
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | xargs)
           
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout cert.key -out cert.crt \
