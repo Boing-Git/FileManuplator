@@ -236,7 +236,7 @@ jobs:
           # 2. Add the custom keychain to the search paths
           security list-keychains -d user -s build.keychain $(security list-keychains -d user | xargs)
           
-          # 3. Create a custom configuration file telling OpenSSL to inject Apple-specific Installer properties
+          # 3. Create a custom configuration file for the Apple OID attributes
           cat <<EOF > apple_installer.conf
           [ req ]
           distinguished_name = req_name
@@ -248,23 +248,30 @@ jobs:
           [ extensions ]
           basicConstraints=critical,CA:false
           keyUsage=critical,digitalSignature
-          # This OID tells macOS that this is strictly an INSTALLER certificate
           extendedKeyUsage=critical,1.2.840.113635.100.4.13
           1.2.840.113635.100.6.1.14=critical,DER:0500
           EOF
           
-          # 4. Generate the key and certificate using the new configuration
+          # 4. Generate the key and certificate
           openssl genrsa -out cert.key 2048
           openssl req -x509 -new -config apple_installer.conf -nodes -days 365 \
             -key cert.key -extensions extensions -sha256 -out cert.crt
           
-          # 5. Pack into PKCS12 and import it into the keychain
+          # 5. CRITICAL: Force macOS to mark this certificate as trusted by the root system
+          # Without this step, productsign will throw the "Could not find identity" error
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain cert.crt
+          
+          # 6. Pack into PKCS12 and import it into your build keychain
           openssl pkcs12 -export -legacy -out cert.p12 -inkey cert.key -in cert.crt -password pass:"$PASS"
-          security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign -T /usr/bin/codesign
+          security import cert.p12 -k build.keychain -P "$PASS" \
+            -T /usr/bin/productsign -T /usr/bin/codesign
+            
+          # 7. Unrestrict permissions on the key for the current shell session
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" build.keychain
 
       - name: Sign the macOS Installer Package
         run: |
-          # Use productsign targeting the specific keychain we built
+          # Use productsign explicitly pointing to the custom trusted keychain
           productsign --keychain build.keychain \
             -s "BoingGit" \
             FileManuplator-installer.pkg \
