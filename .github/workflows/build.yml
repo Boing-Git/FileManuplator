@@ -238,7 +238,7 @@ jobs:
               -subj "/CN=BoingGit"
           
           # Pass the secret to openssl and security import
-          openssl pkcs12 -export -out cert.p12 -inkey cert.key -in cert.crt -password pass:"$PASS"
+          openssl pkcs12 -export -legacy -out cert.p12 -inkey cert.key -in cert.crt -password pass:"$PASS"
           security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign
 
       - name: Sign the macOS Installer Package
