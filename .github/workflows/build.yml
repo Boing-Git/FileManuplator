@@ -8,7 +8,7 @@ on:
     inputs:
       tag:
         description: 'Release tag to attach artifacts to (e.g. v1.2.3) — required for manual runs, since workflow_dispatch has no tag of its own'
-        required: true
+        required: false
 
 # Fix: without this, softprops/action-gh-release gets a 403 on repos/orgs
 # that default GITHUB_TOKEN to read-only.
@@ -226,24 +226,26 @@ jobs:
 
       - name: Create Self-Signed Certificate
         run: |
+          PASS="${{ secrets.KEYCHAIN_PASSWORD }}"
+          
           # Use the secret variable instead of hardcoded text
-          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security create-keychain -p "$PASS" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security unlock-keychain -p "$PASS" build.keychain
           
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout cert.key -out cert.crt \
-              -subj "/CN=${{ secrets.KEYCHAIN_PASSWORD }}"
+              -subj "/CN=BoingGit"
           
           # Pass the secret to openssl and security import
-          openssl pkcs12 -export -out cert.p12 -inkey cert.key -in cert.crt -password pass:"${{ secrets.KEYCHAIN_PASSWORD }}"
-          security import cert.p12 -k build.keychain -P "${{ secrets.KEYCHAIN_PASSWORD }}" -T /usr/bin/productsign
+          openssl pkcs12 -export -out cert.p12 -inkey cert.key -in cert.crt -password pass:"$PASS"
+          security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign
 
       - name: Sign the macOS Installer Package
         run: |
           # Use the native macOS productsign tool to sign your package
           # Format: productsign -s "Certificate Common Name" <unsigned-pkg> <signed-pkg>
-          productsign -s "${{ secrets.KEYCHAIN_PASSWORD }}" \
+          productsign -s "BoingGit" \
             FileManuplator-installer.pkg \
             FileManuplator-installer-SIGNED.pkg
 
