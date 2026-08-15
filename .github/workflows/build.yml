@@ -231,7 +231,7 @@ jobs:
           security default-keychain -s build.keychain
           security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
           
-          sudo req -x509 -nodes -days 365 -newkey rsa:2048 \
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout cert.key -out cert.crt \
               -subj "/CN=${{ secrets.KEYCHAIN_PASSWORD }}"
           
