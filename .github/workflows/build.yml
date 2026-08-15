@@ -228,31 +228,45 @@ jobs:
         run: |
           PASS="${{ secrets.KEYCHAIN_PASSWORD }}"
           
-          # Use the secret variable instead of hardcoded text
+          # 1. Create and unlock the temporary keychain
           security create-keychain -p "$PASS" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$PASS" build.keychain
-
-          # CRITICAL STEP 1: Add your temporary keychain to the macOS keychain search list
-          # If macOS doesn't search this keychain, productsign won't find the identity!
+          
+          # 2. Add the custom keychain to the search paths
           security list-keychains -d user -s build.keychain $(security list-keychains -d user | xargs)
           
-          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-            -keyout cert.key -out cert.crt \
-            -subj "/CN=BoingGit" \
-            -addext "extendedKeyUsage = codeSigning, 1.3.6.1.5.5.7.3.3"
+          # 3. Create a custom configuration file telling OpenSSL to inject Apple-specific Installer properties
+          cat <<EOF > apple_installer.conf
+          [ req ]
+          distinguished_name = req_name
+          prompt = no
+
+          [ req_name ]
+          CN = BoingGit
+
+          [ extensions ]
+          basicConstraints=critical,CA:false
+          keyUsage=critical,digitalSignature
+          # This OID tells macOS that this is strictly an INSTALLER certificate
+          extendedKeyUsage=critical,1.2.840.113635.100.4.13
+          1.2.840.113635.100.6.1.14=critical,DER:0500
+          EOF
           
-          # Pass the secret to openssl and security import
+          # 4. Generate the key and certificate using the new configuration
+          openssl genrsa -out cert.key 2048
+          openssl req -x509 -new -config apple_installer.conf -nodes -days 365 \
+            -key cert.key -extensions extensions -sha256 -out cert.crt
+          
+          # 5. Pack into PKCS12 and import it into the keychain
           openssl pkcs12 -export -legacy -out cert.p12 -inkey cert.key -in cert.crt -password pass:"$PASS"
-          # security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign
-          # CRITICAL STEP 2: Import with explicitly allowed partitioning to avoid GUI permission prompts
           security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign -T /usr/bin/codesign
 
       - name: Sign the macOS Installer Package
         run: |
-          # Use the native macOS productsign tool to sign your package
-          # Format: productsign -s "Certificate Common Name" <unsigned-pkg> <signed-pkg>
-          productsign -s "BoingGit" \
+          # Use productsign targeting the specific keychain we built
+          productsign --keychain build.keychain \
+            -s "BoingGit" \
             FileManuplator-installer.pkg \
             FileManuplator-installer-SIGNED.pkg
 
