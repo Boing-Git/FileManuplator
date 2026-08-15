@@ -235,11 +235,13 @@ jobs:
           
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout cert.key -out cert.crt \
-              -subj "/CN=BoingGit"
+            -subj "/CN=BoingGit"
           
           # Pass the secret to openssl and security import
           openssl pkcs12 -export -legacy -out cert.p12 -inkey cert.key -in cert.crt -password pass:"$PASS"
-          security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign
+          # security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign
+          # CRITICAL STEP 2: Import with explicitly allowed partitioning to avoid GUI permission prompts
+          security import cert.p12 -k build.keychain -P "$PASS" -T /usr/bin/productsign -T /usr/bin/codesign
 
       - name: Sign the macOS Installer Package
         run: |
