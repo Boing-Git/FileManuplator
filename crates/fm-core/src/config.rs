@@ -250,9 +250,21 @@ fn text_fallback_route() -> ConversionRoute {
     )
 }
 
+/// Other names that versions of `file` give the same formats.
+const MIME_ALIASES: &[(&str, &str)] = &[
+    ("text/rtf", "application/rtf"),
+    ("image/x-ms-bmp", "image/bmp"),
+    ("audio/x-flac", "audio/flac"),
+    ("audio/vnd.wave", "audio/wav"),
+];
+
 /// Look up the conversion route for a MIME type.
 /// Falls back to generic raw-text handling for any text/* type not explicitly mapped.
 pub fn get_route(mime_type: &str) -> Option<ConversionRoute> {
+    let mime_type = MIME_ALIASES
+        .iter()
+        .find(|(alias, _)| *alias == mime_type)
+        .map_or(mime_type, |(_, canonical)| canonical);
     if let Some(route) = ROUTES.get(mime_type) {
         return Some(route.clone());
     }

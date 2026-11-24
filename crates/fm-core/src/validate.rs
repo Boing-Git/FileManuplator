@@ -464,6 +464,19 @@ pub fn validate(plugin: &Plugin) -> Vec<Diagnostic> {
                 }
             }
 
+            if step.action == "checksum"
+                && let Some(algorithm) = &step.algorithm
+                && !matches!(algorithm.to_lowercase().as_str(), "sha256" | "sha-256")
+            {
+                out.push(err(
+                    at.clone(),
+                    format!(
+                        "checksum algorithm '{}' is not supported; use \"sha256\".",
+                        algorithm
+                    ),
+                ));
+            }
+
             if let Some(cond) = &step.condition
                 && let Err(e) = crate::condition::evaluate(cond, &|s| s.to_string())
             {

@@ -77,13 +77,29 @@ fn build_command(tool: Tool, binary: &str, input: &Path, output: &Path) -> Vec<S
             input.to_string_lossy().into_owned(),
             output.to_string_lossy().into_owned(),
         ],
-        Tool::Ffmpeg => vec![
-            binary.to_string(),
-            "-y".to_string(),
-            "-i".to_string(),
-            input.to_string_lossy().into_owned(),
-            output.to_string_lossy().into_owned(),
-        ],
+        Tool::Ffmpeg => {
+            let mut command = vec![
+                binary.to_string(),
+                "-y".to_string(),
+                "-i".to_string(),
+                input.to_string_lossy().into_owned(),
+            ];
+            // A GIF is video to ffmpeg; a still image can hold one frame only.
+            let still = output
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| {
+                    matches!(
+                        e.to_lowercase().as_str(),
+                        "png" | "jpg" | "jpeg" | "bmp" | "tiff"
+                    )
+                });
+            if still {
+                command.extend(["-frames:v".to_string(), "1".to_string()]);
+            }
+            command.push(output.to_string_lossy().into_owned());
+            command
+        }
         Tool::Pandoc => unreachable!("Pandoc uses _run_pandoc, not build_command"),
     }
 }

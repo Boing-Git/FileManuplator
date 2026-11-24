@@ -16,3 +16,5 @@ crates/fm-mobile/src-tauri/gen/
 Design language/
 # A clone of the upstream PhotoForge web app; the plugin itself is in FM-Plugins
 PhotoForge/
+# nix-build output
+result

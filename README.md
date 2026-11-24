@@ -181,15 +181,24 @@ Release builds are made by CI (see below). To build one yourself, see [crates/fm
 
 FileManipulator's desktop app is a Rust application with a GTK4 / Libadwaita frontend.
 
-### Using Nix Shell (Recommended)
+### NixOS
+
+Prebuilt Linux binaries (the tarball and the bare executable) cannot find their libraries on NixOS. Build the Nix package instead; it brings GTK, the conversion engines and WebKit with it:
+```bash
+nix-build                      # then ./result/bin/filemanuplator
+nix-env -if .                  # or install it for your user
+```
+or add `(import /path/to/FM { inherit pkgs; })` to `environment.systemPackages`. The AppImage also works through `appimage-run`.
+
+### Using Nix Shell (development)
 ```bash
 nix-shell
 cargo run -p fm-gtk
 ```
 
 ### Manual Build
-Install the system dependencies (GTK4, Libadwaita and WebKitGTK 6.0 development packages, a C
-toolchain, and the conversion engines), then build:
+Install the system dependencies (GTK4 and Libadwaita development packages, a C
+toolchain, and the conversion engines; WebKitGTK 6.0 is optional), then build:
 ```bash
 bash scripts/install_dependencies.sh   # system packages
 cargo build --release -p fm-gtk
@@ -220,7 +229,15 @@ Pushing a `v*` tag runs both workflows and attaches everything to that tag's Git
 
 The APK and AAB are signed with your key when the repository has the `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` secrets; otherwise with a throwaway key, which installs fine but cannot update an install signed differently. The IPA is unsigned: sideload it with a tool such as AltStore or Sideloadly, or sign it yourself.
 
-The HTML Runner's desktop preview needs WebKitGTK 6.0, which the Flatpak runtime and the tarball's system packages provide. The AppImage cannot carry WebKit's helper processes, so there it needs WebKitGTK 6.0 installed on the system.
+What each Linux file needs:
+
+| File | Needs on the system |
+| :--- | :--- |
+| AppImage | Nothing (FUSE to mount it, or run it with `--appimage-extract-and-run`) |
+| Flatpak | Flatpak with Flathub (it installs the GNOME runtime) |
+| Tarball, bare executable | GTK 4.14+ and libadwaita 1.5+ (Ubuntu 24.04, Debian 13, Fedora 40, Arch and newer); `install.sh` names anything missing |
+
+WebKitGTK 6.0 is optional everywhere: it is loaded only when the HTML Runner shows a page. Without it the app runs normally and the HTML Runner offers to open the page in your browser.
 
 ## 📦 Repository Layout
 

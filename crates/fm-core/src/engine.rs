@@ -476,6 +476,15 @@ fn action_copy(
         dest
     };
 
+    // Copying a file onto itself truncates it to nothing before reading it.
+    if let (Ok(a), Ok(b)) = (fs::canonicalize(&src), fs::canonicalize(&dest))
+        && a == b
+    {
+        return Err(format!(
+            "Copy failed: '{}' is the input file itself; choose another folder or name.",
+            dest
+        ));
+    }
     if let Some(parent) = Path::new(&dest).parent() {
         let _ = fs::create_dir_all(parent);
     }
@@ -553,12 +562,20 @@ fn action_checksum(
     } else {
         input
     };
-    let output = resolve(step.output_file.as_ref(), ctx, state);
-    let output = if output.is_empty() {
-        format!("{}.sha256", input)
-    } else {
-        output
-    };
+    let mut output = resolve(step.output_file.as_ref(), ctx, state);
+    if output.is_empty() {
+        output = resolve(step.destination.as_ref(), ctx, state);
+    }
+    if output.is_empty() {
+        output = format!("{}.sha256", input);
+    }
+    let algorithm = resolve(step.algorithm.as_ref(), ctx, state).to_lowercase();
+    if !matches!(algorithm.as_str(), "" | "sha256" | "sha-256") {
+        return Err(format!(
+            "checksum: algorithm '{}' is not supported (use sha256)",
+            algorithm
+        ));
+    }
 
     let mut file =
         File::open(&input).map_err(|e| format!("Cannot open '{}' for checksum: {}", input, e))?;
@@ -1050,6 +1067,24 @@ mod tests {
         assert!(size <= 6 * 1024, "{size} bytes is over the 6 KiB budget");
         let out = image::open(&output).unwrap();
         assert_eq!((out.width(), out.height()), (120, 80));
+    }
+
+    #[test]
+    fn copy_refuses_to_overwrite_its_own_input() {
+        let dir = std::env::temp_dir().join("fm_copy_self");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("keep.txt");
+        fs::write(&file, "precious").unwrap();
+        let ctx = FileContext::from_paths(&file, &file, "text/plain");
+        let step = PipelineStep {
+            step: 1,
+            action: "copy".into(),
+            destination: Some("{output.path}".into()),
+            ..Default::default()
+        };
+        assert!(execute_pipeline(&[step], &ctx, &HashMap::new()).is_err());
+        assert_eq!(fs::read_to_string(&file).unwrap(), "precious");
     }
 
     #[test]

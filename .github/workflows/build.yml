@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to attach artifacts to (e.g. v1.2.3) — required for manual runs, since workflow_dispatch has no tag of its own'
-        required: true
+        description: 'Release tag to attach the files to (e.g. v1.2.3). Leave empty to keep them as workflow artifacts only, for testing.'
+        required: false
 
 # Without this, softprops/action-gh-release gets a 403 on repos/orgs that
 # default GITHUB_TOKEN to read-only.
@@ -29,11 +29,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install GTK development packages
-        # ffmpeg is for the tests that run the Video Trimmer plugin for real.
+        # The engines are for the tests that convert every format and run the
+        # plugins for real.
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config \
-            libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libssl-dev file ffmpeg
+            libgtk-4-dev libadwaita-1-dev libssl-dev file \
+            ffmpeg imagemagick pandoc par2
 
       - name: Check out the plugins next to this repository
         # fm-core's tests load and run every plugin from ../FM-Plugins: the
@@ -79,7 +81,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config \
-            libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libssl-dev file \
+            libgtk-4-dev libadwaita-1-dev libssl-dev file \
             flatpak flatpak-builder curl wget unzip
 
       - uses: dtolnay/rust-toolchain@stable
@@ -182,7 +184,17 @@ jobs:
             packaging/linux/org.filemanuplator.Converter.yml --force-clean
           flatpak build-bundle repo filemanuplator.flatpak org.filemanuplator.Converter
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            filemanuplator-linux-x86_64
+            FileManuplator-Linux.tar.gz
+            FileManipulator-x86_64.AppImage
+            filemanuplator.flatpak
+
       - name: Upload Release Assets
+        if: github.event_name == 'push' || github.event.inputs.tag != ''
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}

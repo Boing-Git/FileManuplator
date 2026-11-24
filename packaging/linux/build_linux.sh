@@ -23,6 +23,7 @@ if [ -d "bin" ]; then
     cp -r bin "$BUILD_DIR/"
 fi
 cp README.md "$BUILD_DIR/" 2>/dev/null || true
+cp packaging/linux/icon.png "$BUILD_DIR/icon.png"
 
 echo "Copying installer to root of tarball..."
 cp packaging/linux/install.sh "$BUILD_DIR/"

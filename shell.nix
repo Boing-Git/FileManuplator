@@ -41,7 +41,8 @@ pkgs.mkShell {
   shellHook = ''
     export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:$XDG_DATA_DIRS"
     export GIO_MODULE_DIR="${pkgs.glib-networking}/lib/gio/modules/"
-    export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (with pkgs; [ openssl ])}:$LD_LIBRARY_PATH"
+    # WebKitGTK is loaded at run time (dlopen) for the HTML preview.
+    export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (with pkgs; [ openssl webkitgtk_6_0 ])}:$LD_LIBRARY_PATH"
 
     # Fix for Nix cc-wrapper bug splitting the `out` variable by spaces
     unset out
