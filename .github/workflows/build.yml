@@ -86,7 +86,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build release binary
-        run: cargo build --release -p fm-gtk
+        # The bare executable is also published, for people who already have
+        # GTK4, libadwaita and WebKitGTK 6.0 installed.
+        run: |
+          cargo build --release -p fm-gtk
+          cp target/release/fm-gtk filemanuplator-linux-x86_64
 
       - name: Download Portable Engines
         run: |
@@ -183,6 +187,7 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           files: |
+            filemanuplator-linux-x86_64
             FileManuplator-Linux.tar.gz
             FileManipulator-x86_64.AppImage
             filemanuplator.flatpak

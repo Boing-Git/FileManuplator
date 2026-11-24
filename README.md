@@ -214,7 +214,7 @@ Pushing a `v*` tag runs both workflows and attaches everything to that tag's Git
 
 | File | Built by |
 | :--- | :--- |
-| `FileManuplator-Linux.tar.gz`, `FileManipulator-x86_64.AppImage`, `filemanuplator.flatpak` | `build.yml` |
+| `filemanuplator-linux-x86_64` (the bare executable), `FileManuplator-Linux.tar.gz`, `FileManipulator-x86_64.AppImage`, `filemanuplator.flatpak` | `build.yml` |
 | `FileManipulator-android.apk` (installable), `FileManipulator-android.aab` (for Google Play) | `mobile.yml` |
 | `FileManipulator-ios-unsigned.ipa` | `mobile.yml` |
 
