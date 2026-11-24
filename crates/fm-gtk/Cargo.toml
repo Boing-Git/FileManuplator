@@ -1,0 +1,18 @@
+[package]
+name = "fm-gtk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-channel = "2.5.0"
+dirs = "6.0.0"
+fm-core = { version = "0.1.0", path = "../fm-core" }
+gtk4 = { version = "0.11.4", features = ["v4_12"] }
+libadwaita = { version = "0.9.2", features = ["v1_4"] }
+image = "0.25"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+toml = "1.1.4"
+ureq = "3.4.0"
+webkit6 = "0.6.1"
+zip = "8.6.0"

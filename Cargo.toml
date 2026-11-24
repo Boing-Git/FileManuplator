@@ -1,0 +1,19 @@
+[workspace]
+# The desktop app. The Android/iOS app (crates/fm-mobile) is built by the
+# Tauri CLI for phone targets, so it stays outside this workspace with its own
+# lockfile; see crates/fm-mobile/README.md.
+members = [
+    "crates/fm-core",
+    "crates/fm-gtk",
+]
+exclude = [
+    "crates/fm-mobile/src-tauri",
+]
+resolver = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

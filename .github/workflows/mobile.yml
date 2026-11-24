@@ -1,0 +1,183 @@
+name: Mobile
+
+# The Android (APK + AAB) and iOS (unsigned IPA) builds of crates/fm-mobile.
+# Tags attach them to that tag's release; a manual run keeps them as workflow
+# artifacts only.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  PLUGINS_REPO: https://github.com/Boing-Git/FileManuplator-Plugins
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/fm-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the plugins to bundle
+        # The plugins tag matching this release when there is one, else main.
+        run: |
+          ref=main
+          if [[ "$GITHUB_REF" == refs/tags/* ]] &&
+             git ls-remote --exit-code --tags "$PLUGINS_REPO" "$GITHUB_REF_NAME" >/dev/null; then
+            ref="$GITHUB_REF_NAME"
+          fi
+          git clone --depth 1 --branch "$ref" "$PLUGINS_REPO" "$RUNNER_TEMP/FM-Plugins"
+          echo "FM_PLUGINS_DIR=$RUNNER_TEMP/FM-Plugins" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/fm-mobile/src-tauri
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install the Tauri CLI
+        run: npm ci
+
+      - name: Generate the Android project and icons
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android init --ci
+          npx tauri icon ../../packaging/icon/icon.png
+
+      - name: Build the APK and AAB
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android build --ci --apk --aab \
+            --target aarch64 --target armv7 --target x86_64
+
+      - name: Sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          # With your own key in the repository secrets, each release installs
+          # as an update of the last and the AAB is ready for Play. Without it
+          # a throwaway key is made, so the APK still installs.
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: signed with a throwaway key, so this APK cannot update a differently signed install."
+            KEYSTORE_PASSWORD=$(openssl rand -hex 16)
+            KEY_ALIAS=filemanuplator
+            keytool -genkeypair -keystore release.jks -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" \
+              -dname "CN=filemanuplator"
+          fi
+          export KEYSTORE_PASSWORD
+
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          apk=$(find src-tauri/gen/android -name '*-release-unsigned.apk' | head -n1)
+          aab=$(find src-tauri/gen/android -name '*-release.aab' | head -n1)
+          echo "APK: $apk"
+          echo "AAB: $aab"
+
+          mkdir -p dist
+          "$tools/zipalign" -f -p 4 "$apk" dist/aligned.apk
+          "$tools/apksigner" sign --ks release.jks --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --out dist/FileManipulator-android.apk dist/aligned.apk
+          "$tools/apksigner" verify dist/FileManipulator-android.apk
+
+          cp "$aab" dist/FileManipulator-android.aab
+          jarsigner -keystore release.jks -storepass "$KEYSTORE_PASSWORD" \
+            dist/FileManipulator-android.aab "$KEY_ALIAS"
+          rm dist/aligned.apk release.jks
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: |
+            crates/fm-mobile/dist/FileManipulator-android.apk
+            crates/fm-mobile/dist/FileManipulator-android.aab
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            crates/fm-mobile/dist/FileManipulator-android.apk
+            crates/fm-mobile/dist/FileManipulator-android.aab
+
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: crates/fm-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the plugins to bundle
+        run: |
+          ref=main
+          if [[ "$GITHUB_REF" == refs/tags/* ]] &&
+             git ls-remote --exit-code --tags "$PLUGINS_REPO" "$GITHUB_REF_NAME" >/dev/null; then
+            ref="$GITHUB_REF_NAME"
+          fi
+          git clone --depth 1 --branch "$ref" "$PLUGINS_REPO" "$RUNNER_TEMP/FM-Plugins"
+          echo "FM_PLUGINS_DIR=$RUNNER_TEMP/FM-Plugins" >> "$GITHUB_ENV"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/fm-mobile/src-tauri
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install the Tauri CLI
+        run: npm ci
+
+      - name: Generate the Xcode project and icons
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          npx tauri ios init --ci
+          npx tauri icon ../../packaging/icon/icon.png
+
+      - name: Build an unsigned IPA
+        # Unsigned: sideload it with AltStore/Sideloadly, or sign it yourself.
+        run: |
+          npx tauri ios build --ci --no-sign --target aarch64
+          ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -n1)
+          echo "IPA: $ipa"
+          mkdir -p dist
+          cp "$ipa" dist/FileManipulator-ios-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: crates/fm-mobile/dist/FileManipulator-ios-unsigned.ipa
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: crates/fm-mobile/dist/FileManipulator-ios-unsigned.ipa

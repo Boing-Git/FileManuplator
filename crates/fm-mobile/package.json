@@ -1,0 +1,11 @@
+{
+  "name": "fm-mobile",
+  "private": true,
+  "description": "filemanuplator for Android and iOS. Only the Tauri CLI lives here; the page in ui/ needs no build step.",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

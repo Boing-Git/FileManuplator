@@ -1,6 +1,8 @@
 app-id: org.filemanuplator.Converter
 runtime: org.gnome.Platform
-runtime-version: '45'
+# NOTE: bump this as GNOME runtimes age (48 went EOL in March 2026).
+# The CI workflow reads this value and installs the matching runtime.
+runtime-version: '48'
 sdk: org.gnome.Sdk
 command: filemanuplator
 finish-args:
@@ -13,10 +15,16 @@ finish-args:
 modules:
   - name: filemanuplator
     buildsystem: simple
+    # The Rust binary is built outside flatpak-builder (which has no network
+    # access for fetching crates) and installed here.
     build-commands:
-      - install -D src/main.py /app/bin/filemanuplator
-      - cp -r src /app/src
-      - cp -r bin/* /app/bin/
+      - install -Dm755 target/release/fm-gtk /app/bin/filemanuplator
+      - |
+        if [ -d bin ]; then
+          for engine in bin/*; do
+            [ -f "$engine" ] && install -Dm755 "$engine" "/app/bin/$(basename "$engine")"
+          done
+        fi
     sources:
       - type: dir
         path: ../../

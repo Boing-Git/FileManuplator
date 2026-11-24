@@ -1,0 +1,282 @@
+/* Material 3 Expressive components layered over libadwaita.
+   Every @m3_* colour is a role of the user's colour scheme, defined at run time
+   by appearance.rs (and mapped onto libadwaita's own colours there). */
+
+@define-color headerbar_shade_color transparent;
+@define-color card_shade_color transparent;
+
+/* --- Motion (M3E expressive scheme, bezier stand-ins for the springs) ---
+   fast spatial    350ms cubic-bezier(0.42, 1.67, 0.21, 0.90)  overshoot: size/shape
+   fast effects    150ms cubic-bezier(0.31, 0.94, 0.34, 1.00)  no overshoot: colour/opacity */
+
+/* --- Type: bolder, larger expressive headlines --- */
+.title-1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
+.title-2 { font-size: 28px; font-weight: 750; }
+.title-3, .title-4 { font-weight: 700; }
+statuspage > scrolledwindow > viewport > box > .title { font-size: 36px; font-weight: 800; }
+.dim-label { color: @m3_on_surface_variant; opacity: 1; }
+
+/* --- Shape: large rounded containers --- */
+.card {
+  border-radius: 28px;
+  box-shadow: none;
+  border: none;
+  background-color: @m3_surface_container;
+}
+
+/* M3E list: items are separate tiles with 2px gaps, small inner corners,
+   large outer corners, instead of one card cut by hairlines. */
+list.boxed-list, preferencesgroup list {
+  background: none;
+  box-shadow: none;
+  border: none;
+}
+list.boxed-list > row, preferencesgroup list > row {
+  background-color: @m3_surface_container;
+  border: none;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  transition: background-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+list.boxed-list > row:first-child, preferencesgroup list > row:first-child { border-radius: 20px 20px 4px 4px; }
+list.boxed-list > row:last-child, preferencesgroup list > row:last-child { border-radius: 4px 4px 20px 20px; margin-bottom: 0; }
+list.boxed-list > row:only-child, preferencesgroup list > row:only-child { border-radius: 20px; }
+list.boxed-list > row.activatable:hover, preferencesgroup list > row.activatable:hover { background-color: @m3_surface_container_high; }
+
+/* Entry rows: the filled-field active indicator appears while editing. */
+row.entry:focus-within { box-shadow: inset 0 -2px @m3_primary; }
+
+/* --- Buttons: pill shape, shape-morph on press, spring-ish motion --- */
+button {
+  border-radius: 20px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-weight: 600;
+  transition: border-radius 350ms cubic-bezier(0.42, 1.67, 0.21, 0.90),
+              background-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00),
+              transform 350ms cubic-bezier(0.42, 1.67, 0.21, 0.90);
+}
+button:active { border-radius: 10px; transform: scale(0.97); }
+button.image-button, headerbar button { border-radius: 9999px; min-width: 40px; padding: 0; }
+headerbar button:active, button.image-button:active { border-radius: 12px; }
+button.pill { border-radius: 9999px; min-height: 56px; padding: 0 28px; font-size: 16px; }
+button.pill:active { border-radius: 16px; }
+button.suggested-action { background-color: @m3_primary; color: @m3_on_primary; }
+button.destructive-action { background-color: @m3_error_container; color: @m3_on_error_container; }
+button.flat { background-color: transparent; }
+button.flat:hover { background-color: alpha(@m3_primary, 0.08); }
+button.card { border-radius: 28px; }
+button.card:hover { background-color: @m3_surface_container_high; }
+button.card:active { border-radius: 40px; transform: scale(0.99); }
+
+/* --- Inputs --- */
+entry, spinbutton {
+  border-radius: 16px;
+  background-color: @m3_surface_container_highest;
+}
+dropdown > button, combobox > box > button {
+  border-radius: 9999px;
+  background-color: @m3_secondary_container;
+  color: @m3_on_secondary_container;
+}
+dropdown > button:hover {
+  background-color: mix(@m3_secondary_container, @m3_on_secondary_container, 0.08);
+}
+switch { border-radius: 9999px; }
+switch:checked { background-color: @m3_primary; }
+switch > slider { border-radius: 9999px; }
+progressbar > trough, progressbar > trough > progress { border-radius: 9999px; min-height: 6px; }
+
+/* --- Checkbox (M3: 18px box, 2px corner, 2px outline, 40px round state layer) --- */
+checkbutton { padding: 4px; border-radius: 9999px; }
+checkbutton > check {
+  /* GTK adds the border outside min-size: 14 + 2*2 = 18px. */
+  min-width: 14px;
+  min-height: 14px;
+  margin: 0;
+  padding: 0;
+  border-radius: 2px;
+  border: 2px solid @m3_on_surface_variant;
+  background: none;
+  box-shadow: 0 0 0 11px transparent;
+  -gtk-icon-size: 14px;
+  transition: background-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00),
+              border-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00),
+              box-shadow 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+checkbutton > check:checked, checkbutton > check:indeterminate {
+  background-color: @m3_primary;
+  border-color: @m3_primary;
+  color: @m3_on_primary;
+}
+
+/* --- Radio (M3: 20px ring, 2px outline, 10px dot) --- */
+checkbutton > radio {
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  border-radius: 9999px;
+  border: 2px solid @m3_on_surface_variant;
+  background: none;
+  -gtk-icon-source: none;
+  box-shadow: 0 0 0 10px transparent;
+  transition: border-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00),
+              box-shadow 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+checkbutton > radio:checked {
+  border-color: @m3_primary;
+  background-image: radial-gradient(circle, @m3_primary 5px, transparent 5.5px);
+}
+
+/* State layers: hover 8%, pressed 10%, in the role's colour. */
+checkbutton:hover > check, checkbutton:hover > radio { box-shadow: 0 0 0 10px alpha(@m3_on_surface, 0.08); }
+checkbutton:hover > check:checked, checkbutton:hover > radio:checked { box-shadow: 0 0 0 10px alpha(@m3_primary, 0.08); }
+checkbutton:active > check, checkbutton:active > radio { box-shadow: 0 0 0 10px alpha(@m3_primary, 0.10); }
+checkbutton:focus-visible > check, checkbutton:focus-visible > radio { outline: 2px solid @m3_secondary; outline-offset: 2px; }
+checkbutton > label { margin-left: 8px; }
+
+/* --- Progress --- */
+progressbar > trough, progressbar > trough > progress { border-radius: 9999px; min-height: 6px; }
+
+/* --- Slider (M3E: 16px track, 4x44 handle, gap around handle) --- */
+scale { padding: 14px 0; }
+scale > trough {
+  min-height: 16px;
+  border-radius: 9999px;
+  background-color: @m3_secondary_container;
+}
+scale > trough > highlight {
+  border-radius: 9999px 2px 2px 9999px;
+  background-color: @m3_primary;
+}
+scale > trough > slider {
+  min-width: 4px;
+  min-height: 44px;
+  margin: -14px 0;
+  border-radius: 2px;
+  border: none;
+  background-color: @m3_primary;
+  /* The surface-coloured ring is the gap between handle and track. */
+  box-shadow: 0 0 0 6px @m3_surface_container;
+  transition: min-width 350ms cubic-bezier(0.42, 1.67, 0.21, 0.90);
+}
+scale > trough > slider:hover { background-color: @m3_primary; }
+scale > trough > slider:active { min-width: 2px; }
+scale > value {
+  color: @m3_on_surface_variant;
+  font-weight: 500;
+  font-feature-settings: "tnum";
+  min-width: 3em;
+}
+
+/* --- Navigation bar (M3: 56x32 pill indicator, label medium) --- */
+.nav-bar {
+  background-color: @m3_surface_container;
+  padding: 0 8px;
+}
+button.nav-item {
+  background: none;
+  border-radius: 0;
+  min-height: 80px;
+  padding: 0;
+  transform: none;
+  outline: none;
+  color: @m3_on_surface_variant;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+button.nav-item:active { transform: none; border-radius: 0; }
+button.nav-item:checked { color: @m3_secondary; font-weight: 700; }
+.nav-indicator {
+  min-width: 56px;
+  min-height: 32px;
+  border-radius: 9999px;
+  transition: background-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+.nav-pill {
+  min-width: 0;
+  border-radius: 9999px;
+  background-color: transparent;
+  transition: min-width 350ms cubic-bezier(0.42, 1.67, 0.21, 0.90),
+              background-color 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+button.nav-item:checked .nav-pill { min-width: 56px; background-color: @m3_secondary_container; }
+button.nav-item:hover .nav-indicator { background-color: alpha(@m3_on_surface, 0.08); }
+button.nav-item:active .nav-indicator { background-color: alpha(@m3_on_surface, 0.10); }
+button.nav-item:checked:hover .nav-pill { background-color: mix(@m3_secondary_container, @m3_on_secondary_container, 0.08); }
+button.nav-item .nav-indicator image { color: @m3_on_surface_variant; }
+button.nav-item:checked .nav-indicator image { color: @m3_on_secondary_container; }
+button.nav-item:focus-visible .nav-indicator { outline: 2px solid @m3_secondary; outline-offset: 2px; }
+
+/* --- Badges, banners, toasts, popovers --- */
+.pill:not(button) {
+  border-radius: 9999px;
+  padding: 2px 10px;
+  background-color: @m3_tertiary_container;
+  color: @m3_on_tertiary_container;
+}
+banner > revealer > widget { background-color: @m3_tertiary_container; color: @m3_on_tertiary_container; }
+toast { border-radius: 16px; background-color: @m3_on_surface; color: @m3_surface; }
+toast button { color: @m3_primary_container; }
+popover > contents, popover.menu > contents { border-radius: 24px; }
+
+/* --- Notice (plugin widget): tonal container, secondary unless a role is set --- */
+.notice {
+  border-radius: 16px;
+  padding: 12px 16px;
+  background-color: @m3_secondary_container;
+  color: @m3_on_secondary_container;
+}
+
+/* --- HTML Runner: a phone-shaped frame around the page --- */
+.phone-frame {
+  border-radius: 40px;
+  border: 10px solid @m3_surface_container_highest;
+  background-color: @m3_surface_container_lowest;
+}
+
+/* --- Colour scheme picker --- */
+.scheme-picker { padding: 8px; }
+.scheme-picker .heading { color: @m3_on_surface_variant; }
+button.swatch {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border-radius: 9999px;
+  background-color: @m3_surface_container_highest;
+  color: @m3_surface;
+  transition: border-radius 350ms cubic-bezier(0.42, 1.67, 0.21, 0.90),
+              box-shadow 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00);
+}
+/* M3E: the picked swatch morphs from circle to rounded square. */
+button.swatch:checked, button.swatch:checked:active { border-radius: 16px; }
+button.swatch:active { border-radius: 24px; }
+button.swatch:hover { box-shadow: 0 0 0 3px alpha(@m3_on_surface, 0.12); }
+button.swatch image { opacity: 0; transition: opacity 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00); }
+button.swatch:checked image, button.swatch-custom image { opacity: 1; }
+button.swatch-custom:not(:checked) { color: @m3_on_surface_variant; }
+
+/* --- Segmented button (M3): outlined pill, selected segment tonal with a tick --- */
+.segmented > button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 0;
+  border: 1px solid @m3_outline;
+  margin-left: -1px;
+  background: none;
+  color: @m3_on_surface;
+  transform: none;
+}
+.segmented > button:first-child { border-radius: 9999px 0 0 9999px; margin-left: 0; }
+.segmented > button:last-child { border-radius: 0 9999px 9999px 0; }
+.segmented > button:hover { background-color: alpha(@m3_on_surface, 0.08); }
+.segmented > button:checked {
+  background-color: @m3_secondary_container;
+  color: @m3_on_secondary_container;
+}
+.segmented > button:checked:hover {
+  background-color: mix(@m3_secondary_container, @m3_on_secondary_container, 0.08);
+}

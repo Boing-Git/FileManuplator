@@ -1,0 +1,40 @@
+
+/* --- Plugin colour role: ROLE ---
+   This block is a template. main.rs repeats it once per role in
+   fm_core::theme::PLUGIN_ROLES, with ROLE replaced by primary, secondary,
+   tertiary or error. A plugin opts in with color = "ROLE" on a widget. */
+
+/* Action buttons fill with the role. */
+button.role-ROLE {
+  background-color: @m3_ROLE;
+  color: @m3_on_ROLE;
+}
+button.role-ROLE:hover { background-color: mix(@m3_ROLE, @m3_on_ROLE, 0.08); }
+button.role-ROLE:active { background-color: mix(@m3_ROLE, @m3_on_ROLE, 0.10); }
+
+/* Notices sit in the role's container. */
+.notice.role-ROLE {
+  background-color: @m3_ROLE_container;
+  color: @m3_on_ROLE_container;
+}
+
+/* Rows: the label and the control inside take the role. */
+row.role-ROLE .title { color: @m3_ROLE; }
+row.role-ROLE button:not(.flat),
+row.role-ROLE dropdown > button {
+  background-color: @m3_ROLE_container;
+  color: @m3_on_ROLE_container;
+}
+row.role-ROLE scale > trough { background-color: @m3_ROLE_container; }
+row.role-ROLE scale > trough > highlight,
+row.role-ROLE scale > trough > slider { background-color: @m3_ROLE; }
+row.role-ROLE checkbutton > radio:checked {
+  border-color: @m3_ROLE;
+  background-image: radial-gradient(circle, @m3_ROLE 5px, transparent 5.5px);
+}
+row.role-ROLE checkbutton > check:checked {
+  background-color: @m3_ROLE;
+  border-color: @m3_ROLE;
+  color: @m3_on_ROLE;
+}
+row.role-ROLE.entry:focus-within { box-shadow: inset 0 -2px @m3_ROLE; }

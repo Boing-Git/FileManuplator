@@ -2,3 +2,17 @@
 any2any-linux-x86_64/
 bin/
 *.tar.gz
+__pycache__/
+
+# Rust, Node and Nix build output
+target/
+node_modules/
+.direnv/
+
+# Projects `tauri android init` / `tauri ios init` generate
+crates/fm-mobile/src-tauri/gen/
+
+# A separate design-system library kept here for reference, not part of this repo
+Design language/
+# A clone of the upstream PhotoForge web app; the plugin itself is in FM-Plugins
+PhotoForge/

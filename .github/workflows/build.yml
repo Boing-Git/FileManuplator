@@ -4,28 +4,72 @@ on:
   push:
     tags:
       - 'v*'
+  pull_request:
   workflow_dispatch:
     inputs:
       tag:
         description: 'Release tag to attach artifacts to (e.g. v1.2.3) — required for manual runs, since workflow_dispatch has no tag of its own'
         required: true
 
-# Fix: without this, softprops/action-gh-release gets a 403 on repos/orgs
-# that default GITHUB_TOKEN to read-only.
+# Without this, softprops/action-gh-release gets a 403 on repos/orgs that
+# default GITHUB_TOKEN to read-only.
 permissions:
   contents: write
 
 env:
   PANDOC_VERSION: "3.1.9"
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build-linux:
-    if: false
+  # Fast feedback on every push and pull request: does it build, do the tests
+  # pass, is it formatted, is clippy happy.
+  check:
     runs-on: ubuntu-latest
-    # Fix: ubuntu-latest runners ship without FUSE, so any bare AppImage
-    # invocation (linuxdeploy, the ImageMagick AppImage) fails immediately
-    # with a libfuse.so.2 error. This makes every AppImage self-extract
-    # and run instead of mounting via FUSE.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GTK development packages
+        # ffmpeg is for the tests that run the Video Trimmer plugin for real.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config \
+            libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libssl-dev file ffmpeg
+
+      - name: Check out the plugins next to this repository
+        # fm-core's tests load and run every plugin from ../FM-Plugins: the
+        # plugins tag matching this release when there is one, else main.
+        run: |
+          repo=https://github.com/Boing-Git/FileManuplator-Plugins
+          ref=main
+          if [[ "$GITHUB_REF" == refs/tags/* ]] &&
+             git ls-remote --exit-code --tags "$repo" "$GITHUB_REF_NAME" >/dev/null; then
+            ref="$GITHUB_REF_NAME"
+          fi
+          git clone --depth 1 --branch "$ref" "$repo" ../FM-Plugins
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+  build-linux:
+    # Only produce release artifacts for tags and manual runs.
+    if: github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    # ubuntu-latest runners ship without FUSE, so any bare AppImage invocation
+    # (linuxdeploy, the ImageMagick AppImage) fails immediately with a
+    # libfuse.so.2 error. This makes every AppImage self-extract and run.
     env:
       APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
@@ -33,91 +77,66 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          bash scripts/install_dependencies.sh
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config \
+            libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libssl-dev file \
+            flatpak flatpak-builder curl wget unzip
 
-      - name: Download Static Binaries
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release -p fm-gtk
+
+      - name: Download Portable Engines
         run: |
           mkdir -p bin
           # Portable ffmpeg
-          wget https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          wget -q https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
           tar -xJf ffmpeg-master-latest-linux64-gpl.tar.xz
           cp ffmpeg-master-latest-linux64-gpl/bin/ffmpeg bin/
 
           # Portable pandoc
-          wget "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
+          wget -q "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
           tar -xzf "pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz"
           cp "pandoc-${PANDOC_VERSION}/bin/pandoc" bin/
 
           # Portable ImageMagick (AppImage)
-          wget https://github.com/ImageMagick/ImageMagick/releases/download/7.1.1-21/ImageMagick--gcc-x86_64.AppImage -O bin/magick
+          wget -q https://github.com/ImageMagick/ImageMagick/releases/download/7.1.1-21/ImageMagick--gcc-x86_64.AppImage -O bin/magick
           chmod +x bin/magick bin/ffmpeg bin/pandoc
 
       - name: Create Tarball
-        run: |
-          mkdir -p filemanuplator-linux
-          # Fix: this used to be a single `cp -r src bin packaging plugins
-          # filemanuplator-linux/` — if any one of those directories doesn't exist
-          # in the repo (plugins/ currently doesn't), cp aborts and takes
-          # the whole step down with exit code 1. Copy what's actually
-          # there and warn (not fail) on anything missing, so a genuinely
-          # absent directory doesn't block every downstream packaging step.
-          for d in src bin packaging plugins scripts; do
-            if [ -d "$d" ]; then
-              cp -r "$d" filemanuplator-linux/
-            else
-              echo "::warning::Create Tarball: '$d/' not found in repo, skipping"
-            fi
-          done
-          tar -czf filemanuplator-linux-x86_64.tar.gz filemanuplator-linux/
+        run: bash packaging/linux/build_linux.sh
 
       - name: Build AppImage
         run: |
-          mkdir -p AppDir/usr/bin AppDir/usr/lib
-          cp -r src/* AppDir/usr/bin/
-          cp -r bin/* AppDir/usr/bin/
-
-          # Fix: the old AppRun called system `python3`, so the AppImage
-          # silently depended on the host having python3 + gi + your pip
-          # deps importable — defeating the point of a portable AppImage.
-          # Bundle the actual interpreter and its stdlib/site-packages so
-          # it's self-contained. (Standard AppImage caveat still applies:
-          # this ties the glibc floor to the build host's glibc version.)
-          cp "$(command -v python3)" AppDir/usr/bin/python3
-          mkdir -p AppDir/usr/lib/python3/dist-packages
-          cp -r /usr/lib/python3/dist-packages/* AppDir/usr/lib/python3/dist-packages/
-          PY_LIBDIR="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-          cp "${PY_LIBDIR}"/libpython3*.so* AppDir/usr/lib/ 2>/dev/null || true
+          rm -rf AppDir
+          mkdir -p AppDir/usr/bin
+          install -m 755 target/release/fm-gtk AppDir/usr/bin/filemanuplator
+          cp bin/* AppDir/usr/bin/ 2>/dev/null || true
 
           cat << 'EOF' > AppDir/AppRun
-          #!/bin/sh
+          #!/bin/bash
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          export PYTHONHOME="${HERE}/usr"
-          export PYTHONPATH="${HERE}/usr/lib/python3/dist-packages:${PYTHONPATH}"
-          exec "${HERE}/usr/bin/python3" "${HERE}/usr/bin/main.py" "$@"
+          exec "${HERE}/usr/bin/filemanuplator" "$@"
           EOF
           chmod +x AppDir/AppRun
 
           cat << 'EOF' > AppDir/filemanuplator.desktop
           [Desktop Entry]
-          Name=filemanuplator
+          Name=FileManipulator
           Exec=filemanuplator
           Icon=filemanuplator
           Type=Application
           Categories=Utility;
           EOF
 
-          # Fix: `touch filemanuplator.png` made a 0-byte file, which linuxdeploy
-          # rejects outright (icon must be a real, square image). Use the
-          # repo's icon if one exists, otherwise generate a real placeholder
-          # with the ImageMagick AppImage we already downloaded.
-          #
-          # Fix (round 2): the first placeholder used `-annotate` to draw an
-          # "A" glyph, which needs FreeType to rasterize a font — this
-          # runner has no fonts installed, so annotate failed with
-          # "unable to read font `(null)'". Draw a plain filled circle
-          # instead: it's a valid square icon and needs no font at all.
+          # linuxdeploy rejects a 0-byte icon outright — it must be a real,
+          # square image. Use the repo's icon if present, otherwise draw a
+          # plain filled circle with the ImageMagick AppImage we downloaded.
+          # (A text glyph would need FreeType and fonts, which the runner
+          # does not have.)
           if [ -f packaging/linux/icon.png ]; then
             cp packaging/linux/icon.png AppDir/filemanuplator.png
           else
@@ -125,12 +144,11 @@ jobs:
               -draw "circle 128,128 128,32" AppDir/filemanuplator.png
           fi
 
-          wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
-          # Fix: this plugin is what actually bundles GTK4/libadwaita's
-          # shared libs, GLib schemas, GI typelibs, and icon themes into the
-          # AppDir. Without it the AppImage runs fine on the build host and
-          # breaks on any machine that doesn't already have GTK4 installed.
-          wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+          wget -qc "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          # This plugin is what actually bundles GTK4/libadwaita's shared libs,
+          # GLib schemas, GI typelibs and icon themes into the AppDir. Without
+          # it the AppImage runs on the build host and breaks anywhere else.
+          wget -qc "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-gtk.sh
           export LINUXDEPLOY="$(pwd)/linuxdeploy-x86_64.AppImage"
           export DEPLOY_GTK_VERSION=4
@@ -139,24 +157,14 @@ jobs:
       - name: Build Flatpak
         run: |
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-          # Fix: flatpak-builder needs the GNOME runtime actually installed
-          # locally before it can build against it — nothing pulled it in
-          # the original workflow. Read the version from the manifest
-          # itself rather than hardcoding one, since GNOME runtimes go EOL
-          # roughly yearly (48 went EOL March 2026) and hardcoding here
-          # would silently drift out of sync with packaging/linux/*.yml.
+          # flatpak-builder needs the GNOME runtime installed locally before it
+          # can build against it. Read the version from the manifest rather
+          # than hardcoding one here, so the two cannot drift apart.
           #
-          # Fix (round 2): the old pattern only matched a double-quoted or
-          # bare value and silently returned nothing on single-quoted YAML
-          # (runtime-version: '48'), which is the normal Flatpak-manifest
-          # style. That empty RUNTIME_VERSION turned "org.gnome.Platform//"
-          # into a versionless ref, which flatpak resolves by fuzzy-matching
-          # every published version and prompting interactively — which
-          # then auto-aborts with no TTY attached. Now: handle all three
-          # quote styles, fail loudly if nothing was found instead of
-          # silently continuing with an empty version, and request the
-          # fully-qualified ref (name/arch/branch) so flatpak never falls
-          # back to fuzzy matching in the first place.
+          # Handle all three quote styles: an empty RUNTIME_VERSION would turn
+          # "org.gnome.Platform//" into a versionless ref, which flatpak
+          # resolves by fuzzy-matching every published version and prompting
+          # interactively — then auto-aborting with no TTY attached.
           RUNTIME_VERSION=$(grep -oP "runtime-version[\"']?\s*:\s*[\"']?\K[0-9]+" \
             packaging/linux/org.filemanuplator.Converter.yml | head -n1)
           if [ -z "$RUNTIME_VERSION" ]; then
@@ -166,7 +174,8 @@ jobs:
           flatpak install --user -y --noninteractive flathub \
             "org.gnome.Platform/x86_64/${RUNTIME_VERSION}" \
             "org.gnome.Sdk/x86_64/${RUNTIME_VERSION}"
-          flatpak-builder --user --repo=repo build-dir packaging/linux/org.filemanuplator.Converter.yml --force-clean
+          flatpak-builder --user --repo=repo build-dir \
+            packaging/linux/org.filemanuplator.Converter.yml --force-clean
           flatpak build-bundle repo filemanuplator.flatpak org.filemanuplator.Converter
 
       - name: Upload Release Assets
@@ -174,87 +183,6 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           files: |
-            filemanuplator-linux-x86_64.tar.gz
-            FileManuplator-x86_64.AppImage
+            FileManuplator-Linux.tar.gz
+            FileManipulator-x86_64.AppImage
             filemanuplator.flatpak
-
-  build-windows:
-    if: false
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-
-      - name: Install Dependencies
-        run: bash scripts/install_dependencies.sh
-
-      - name: Build Exe
-        run: |
-          bash packaging/windows/build_windows.sh
-
-      - name: Zip Artifact
-        run: |
-          Compress-Archive -Path dist/FileManuplator -DestinationPath FileManuplator-Windows.zip
-        shell: powershell
-
-      - name: Upload Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
-          files: FileManuplator-Windows.zip
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          bash scripts/install_dependencies.sh
-
-      - name: Build macOS App
-        run: |
-          bash packaging/macos/build_macos.sh
-          # Assumes it creates FileManuplator.dmg
-
-      - name: Create Self-Signed Certificate
-        run: |
-          # Use the secret variable instead of hardcoded text
-          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-          
-          sudo req -x509 -nodes -days 365 -newkey rsa:2048 \
-            -keyout cert.key -out cert.crt \
-              -subj "/CN=${{ secrets.KEYCHAIN_PASSWORD }}"
-          
-          # Pass the secret to openssl and security import
-          openssl pkcs12 -export -out cert.p12 -inkey cert.key -in cert.crt -password pass:"${{ secrets.KEYCHAIN_PASSWORD }}"
-          security import cert.p12 -k build.keychain -P "${{ secrets.KEYCHAIN_PASSWORD }}" -T /usr/bin/productsign
-
-      - name: Sign the macOS Installer Package
-        run: |
-          # Use the native macOS productsign tool to sign your package
-          # Format: productsign -s "Certificate Common Name" <unsigned-pkg> <signed-pkg>
-          productsign -s "${{ secrets.KEYCHAIN_PASSWORD }}" \
-            FileManuplator-installer.pkg \
-            FileManuplator-installer-SIGNED.pkg
-
-      - name: Verify the Signature
-        run: |
-          # Double check that the signature took place
-          pkgutil --check-signature FileManuplator-installer-SIGNED.pkg
-          
-
-      - name: Upload Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
-          files: FileManuplator-installer-SIGNED.pkg

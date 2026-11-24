@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="AdwApplicationWindow" id="window">
+    <property name="title" translatable="yes">filemanuplator</property>
+    <property name="default-width">900</property>
+    <property name="default-height">700</property>
+    <property name="content">
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <property name="child">
+          <object class="AdwToolbarView" id="toolbar_view">
+            <!-- Header Bar -->
+            <child type="top">
+              <object class="AdwHeaderBar" id="header_bar">
+                <property name="title-widget">
+                  <object class="AdwWindowTitle">
+                    <property name="title">filemanuplator</property>
+                    <property name="subtitle">Universal file converter</property>
+                  </object>
+                </property>
+                <child type="end">
+                  <object class="GtkButton" id="plugins_btn">
+                    <property name="icon-name">application-x-addon-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Plugins &amp; Marketplace</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            
+            <!-- Main Content: one page per navigation-bar destination -->
+            <property name="content">
+              <object class="GtkStack" id="pages">
+                <property name="transition-type">crossfade</property>
+                <property name="transition-duration">150</property>
+              </object>
+            </property>
+
+            <!-- M3 Navigation Bar (destinations appended by Rust) -->
+            <child type="bottom">
+              <object class="GtkBox" id="nav_bar">
+                <property name="homogeneous">true</property>
+                <style><class name="nav-bar"/></style>
+              </object>
+            </child>
+            
+          </object>
+        </property>
+      </object>
+    </property>
+  </object>
+</interface>

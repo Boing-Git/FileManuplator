@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>FileManipulator</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <h1 id="title">FileManipulator</h1>
+      <button class="icon-button" id="scheme-button" type="button" aria-label="Colour scheme"></button>
+    </header>
+
+    <main id="page" tabindex="-1"></main>
+
+    <nav class="nav-bar" id="nav" aria-label="Tools"></nav>
+
+    <div class="snackbar" id="snackbar" role="status" aria-live="polite" hidden></div>
+
+    <dialog class="sheet" id="scheme-sheet" aria-labelledby="scheme-heading">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="scheme-heading">Colour scheme</h2>
+      <div class="swatches" id="swatches"></div>
+      <h2>Mode</h2>
+      <div class="segmented" id="modes" role="group" aria-label="Light or dark"></div>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

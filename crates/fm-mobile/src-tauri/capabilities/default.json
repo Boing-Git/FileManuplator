@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "What the app's own page may call. Files are read with a plain file input and written by Rust, so only the save dialog is needed.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-save"]
+}
